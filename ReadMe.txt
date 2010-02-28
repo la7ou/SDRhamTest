@@ -2,17 +2,21 @@ Beskrivelse :
 
 Status :
 
+To Do :
+
 Innhold :
 main.cpp - hovedprogrammet
 window.cpp/h - vindu klasser basert på Qt
-exload.cpp/h - metoder for nedlasting til FX2
+exload.cpp/h - metoder for nedlasting av firmware til FX2 og filterinformasjon AD6620
+
 Filer fra Halvor
-LoadSamples.cpp/h
-ReadSamples.cpp/h
-ProcessSamples.cpp/h
+LoadSamples.cpp/h	- Laste opp lagrede samples
+ReadSamples.cpp/h	- Read samples fra SDRham FE
+ProcessSamples.cpp/h	- prosessere og stream til lydenhet
 dsp001.cpp/h
 dsp002.cpp/h
 dsppsk31.cpp/h
+
 sdrham_main.ihx		- GnuRadio firmware modifisert for SDRham
 just_blink_leds.ihx 	- for test a nedlasting av firmware
 blink_leds.ihx 		- for test a nedlasting av firmware
@@ -51,9 +55,9 @@ Add /System/Bibliotek/Frameworks/AudioUnitFramework
 
 3. Bygging og eksekvering
 make
-sudo ./SDR_ham_ez
+sudo ./SDRham_qt
 (må bruke sudo på linux, pga. noen rettigheter jeg ikke har funnet ut av)
 evt med en annen style
-sudo ./SDR_ham_ez -style windows
+sudo ./SDRham_qt -style windows
 (se http://doc.trolltech.com/4.3/qapplication.html)
-open SDR_ham_ez.app
+open SDRham_qt.app

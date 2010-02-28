@@ -50,163 +50,63 @@
 #include <AudioToolbox/AudioToolbox.h>
 #include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
 
+#include "portaudio.h"
+
 #define _OSX_AU_DEBUG_ 0
 
 //extern char audio_scratch[MAX_SAMPLES];
 //extern unsigned int num_of_samples;
 
-
-OSStatus ProcessSamples::AUOutputCallback
-(void *inRefCon, 
- AudioUnitRenderActionFlags *ioActionFlags, 
- const AudioTimeStamp *inTimeStamp, 
- UInt32 inBusNumber, 
- UInt32 inNumberFrames, 
- AudioBufferList *ioData)
- /*
- Parameters
-ci
-The audio unit to be changed.
-
-ioActionFlags
-Flags that provide information on the render; see “Render Action Flags”.
-
-inTimeStamp
-The time the render is begun.
-
-inOutputBusNumber
-The bus on which the output will be placed.
-
-inNumberFrames
-The number of frames to be rendered.
-
-ioData
-The audio data, before and after the render.
- **!
-	@struct			AURenderCallbackStruct
-	@abstract		Used by a host when registering a callback with the audio unit to provide input
-***
-typedef struct AURenderCallbackStruct {
-	AURenderCallback			inputProc;
-	void *						inputProcRefCon;
-} AURenderCallbackStruct;
- 
- 
- *********************************************************
-    @struct         AudioBuffer
-    @abstract       A structure to hold a buffer of audio data.
-    @field          mNumberChannels
-                        The number of interleaved channels in the buffer.
-    @field          mDataByteSize
-                        The number of bytes in the buffer pointed at by mData.
-    @field          mData
-                        A pointer to the buffer of audio data.
-**
-struct AudioBuffer
+/* This routine will be called by the PortAudio engine when audio is needed.
+ ** It may be called at interrupt level on some machines so don't do anything
+ ** that could mess up the system like calling malloc() or free().
+ */
+int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
+						unsigned long framesPerBuffer,
+						const PaStreamCallbackTimeInfo* timeInfo,
+						PaStreamCallbackFlags statusFlags,
+						void *userData )
 {
-    UInt32  mNumberChannels;
-    UInt32  mDataByteSize;
-    void*   mData;
-};
-typedef struct AudioBuffer  AudioBuffer;
-
-// **!
-    @struct         AudioBufferList
-    @abstract       A variable length array of AudioBuffer structures.
-    @field          mNumberBuffers
-                        The number of AudioBuffers in the mBuffers array.
-    @field          mBuffers
-                        A variable length array of AudioBuffers.
-**
-struct AudioBufferList
-{
-    UInt32      mNumberBuffers;
-    AudioBuffer mBuffers[kVariableLengthArray];
-};
-typedef struct AudioBufferList  AudioBufferList;
-
-*!
-    @struct         AudioBuffer
-    @abstract       A structure to hold a buffer of audio data.
-    @field          mNumberChannels
-                        The number of interleaved channels in the buffer.
-    @field          mDataByteSize
-                        The number of bytes in the buffer pointed at by mData.
-    @field          mData
-                        A pointer to the buffer of audio data.
-*
-
-*******************************************************************************/
- 
-{
-  ProcessSamples* This = (ProcessSamples*) inRefCon;
-  OSStatus err = noErr;
-  
-  ioActionFlags=0;
-  inBusNumber=1;
-  inTimeStamp=NULL;
-  inNumberFrames=This->lSamptr->sample_count;
-
-//-->  This->d_internal->lock ();
-
-#if _OSX_AU_DEBUG_
-  fprintf (stderr, "cb_in: SC = %4ld, in#F = %4ld\n",
-	This->lSamptr->sample_count, inNumberFrames);
-	   //This->d_queueSampleCount, inNumberFrames);
-#endif
-		AudioBufferList fillBufList;
-		fillBufList.mNumberBuffers = 8;//#define NUM_OF_BUFFERS    8
-		fillBufList.mBuffers[0].mNumberChannels = 1;
-		fillBufList.mBuffers[0].mDataByteSize = This->audio_index<<1;
-		//we're just going to copy the data into each channel
-		This->audio_index=0;
-	for (UInt32 channel = 1; channel < ioData->mNumberBuffers; channel++)
-	{
-		fillBufList.mBuffers[0].mData = &This->paudio_scratch[This->audio_index];
-		ioData = &fillBufList;
-		memcpy (ioData->mBuffers[channel].mData, ioData->mBuffers[0].mData, ioData->mBuffers[0].mDataByteSize);
-
-		This->audio_index=This->audio_index+128;
-    }
+    paTestData *data = (paTestData*)userData;
+    SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
+    SAMPLE *wptr = (SAMPLE*)outputBuffer;
+    unsigned int i;
+    int finished;
+    unsigned int framesLeft = data->maxFrameIndex - data->frameIndex;
 	
-  if (  This->lSamptr->sample_count < inNumberFrames) {
-// not enough data to fill request
-    err = -1;
-  } else {
-// enough data; remove data from our buffers into the AU's buffers
-    int l_counter = This->nChannels;		//d_n_channels;
-
-    while (--l_counter >= 0) {
-      UInt32 t_n_output_items = inNumberFrames;
- //     float* outBuffer = (float*) ioData->mBuffers[l_counter].mData;
-	  
-//-->      This->d_buffers[l_counter]->dequeue (outBuffer, &t_n_output_items);
-      if (t_n_output_items != inNumberFrames) {
-/*-->	throw std::runtime_error ("audio_osx_sink::AUOutputCallback(): "
-				  "number of available items changing "
-				  "unexpectedly.\n");*/
-      }
+    (void) inputBuffer; /* Prevent unused variable warnings. */
+    (void) timeInfo;
+    (void) statusFlags;
+    (void) userData;
+	
+    if( framesLeft < framesPerBuffer )
+    {
+        /* final buffer... */
+        for( i=0; i<framesLeft; i++ )
+        {
+            *wptr++ = *rptr++;  /* left */
+            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
+        }
+        for( ; i<framesPerBuffer; i++ )
+        {
+            *wptr++ = 0;  /* left */
+            if( NUM_CHANNELS == 2 ) *wptr++ = 0;  /* right */
+        }
+        data->frameIndex += framesLeft;
+        finished = paComplete;
     }
-
-	This->lSamptr->sample_count -= inNumberFrames;
-  }
-
-#if _OSX_AU_DEBUG_
-  fprintf (stderr, "cb_out: SC = %4ld\n", This->sample_count);  //d_queueSampleCount);
-#endif
-
-// signal that data is available
-//-->  This->d_cond_data->signal ();
-
-// release control to allow for other processing parts to run
-//-->  This->d_internal->unlock ();
-
-  return (err);
+    else
+    {
+        for( i=0; i<framesPerBuffer; i++ )
+        {
+            *wptr++ = *rptr++;  /* left */
+            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
+        }
+        data->frameIndex += framesPerBuffer;
+        finished = paContinue;
+    }
+    return finished;
 }
-
-
-
-
 
   void ProcessSamples::run()
  {
@@ -268,21 +168,9 @@ ProcessSamples:: ProcessSamples(QObject *parent, LoadSamples *lsam)
 		// parent class pointer 
 		lSamptr = lsam;
 
-	OSStatus err = noErr;
 
-	// Open the default output unit
-	ComponentDescription desc;
-	desc.componentType = kAudioUnitType_Output;
-	desc.componentSubType = kAudioUnitSubType_DefaultOutput;
-	desc.componentManufacturer = kAudioUnitManufacturer_Apple;
-	desc.componentFlags = 0;
-	desc.componentFlagsMask = 0;
-	
-	Component comp = FindNextComponent(NULL, &desc);
-	if (comp == NULL) { printf ("FindNextComponent\n"); return; }
-	
-	err = OpenAComponent(comp, &gOutputUnit);
-	if (comp == NULL) { printf ("OpenAComponent=%ld\n", err); return; }
+	OSStatus err = noErr;
+	err = paNoError;
 
 }
 
@@ -306,76 +194,6 @@ if_gain=0;
 	
 		printf (" mode = %d\n", lSamptr->mode);
 
-// CoreAudio/CoreAudioTypes.h :
-	// We tell the Output Unit what format we're going to supply data to it
-	// this is necessary if you're providing data through an input callback
-	// AND you want the DefaultOutputUnit to do any format conversions
-	// necessary from your format to the device's format.
-  waveFormat.mSampleRate=wout_sample_rate; // nSamplesPerSec=wout_sample_rate;
-  waveFormat.mFormatID=kAudioFormatLinearPCM;//wFormatTag=WAVE_FORMAT_PCM;
- // waveFormat.mFormatFlags=kAudioFormatFlagIsBigEndian; //<==
-  waveFormat.mFormatFlags=kLinearPCMFormatFlagIsSignedInteger 
-								| kAudioFormatFlagsNativeEndian
-								| kLinearPCMFormatFlagIsPacked
-								| kAudioFormatFlagIsNonInterleaved;
-  waveFormat.mBytesPerPacket=2;//4;//8;
-  waveFormat.mFramesPerPacket=1; // In uncompressed audio, a Packet is one frame
-  waveFormat.mBytesPerFrame=2;//4;//gr_audio_osx 32;//?? //nAvgBytesPerSec=waveFormat.nSamplesPerSec*waveFormat.nBlockAlign;
-  waveFormat.mChannelsPerFrame=nChannels;
-  waveFormat.mBitsPerChannel=16;//32?//wBitsPerSample=16;
-  waveFormat.mReserved=0; //cbSize=0;
-  //waveFormat.nBlockAlign=waveFormat.nChannels*(waveFormat.wBitsPerSample/8);
-
-	  
-
-//  Hentet fra DefaultOutputUnits
-//#if _OSX_AU_DEBUG_
-	printf("\nRendering source:\n\t");
-	printf ("SampleRate=%f\n\t", waveFormat.mSampleRate);
-	printf ("BytesPerPacket=%ld\n\t", waveFormat.mBytesPerPacket);
-	printf ("FramesPerPacket=%ld\n\t", waveFormat.mFramesPerPacket);
-	printf ("BytesPerFrame=%ld\n\t", waveFormat.mBytesPerFrame);
-	printf ("BitsPerChannel=%ld\n\t", waveFormat.mBitsPerChannel);
-	printf ("ChannelsPerFrame=%ld\n", waveFormat.mChannelsPerFrame);
-	
-//#endif
-
-
-//Set the stream format of the output to match the input
-//result = 
-err = AudioUnitSetProperty (gOutputUnit,			//*theUnit,
-                            kAudioUnitProperty_StreamFormat,
-                            kAudioUnitScope_Input,
-                            0,
-                            &waveFormat,
-							sizeof(AudioStreamBasicDescription));
- 
-if (err) { 
-	printf ("AudioUnitSetProperty-SF=%4.4s, %ld\n", (char*)&err, err); 
-	return; 
-}
-
-	    // Initialize unit
-err = AudioUnitInitialize(gOutputUnit);
-if (err) { 
-	printf ("AudioUnitInitialize=%ld\n", err); 
-	return;
-	}
-
-
-	//Float64 outSampleRate;
-	UInt32 size = sizeof(Float64);
-	err = AudioUnitGetProperty (gOutputUnit,
-							kAudioUnitProperty_SampleRate,
-							kAudioUnitScope_Output,
-							0,	
-							&outSampleRate,
-							&size);
-	if (err) { 
-		printf ("AudioUnitGetProperty-GF=%4.4s, %ld\n", (char*)&err, err); 
-		return;
-	}
- 
 	
 	printf("\nProcess Parameters : \n\t");
 	printf ("PacketSize( =MAX_SAMPLES_FRAME*SAMPLE_SIZE) = %d\n\t", PacketSize);
@@ -450,6 +268,8 @@ if (err) {
 
 //    } // end of //    if(WaitForSingleObject(hProcessEvent,1000)==WAIT_OBJECT_0)
 
+	  
+	  data.recordedSamples = paudio_scratch;
 
     switch(waveFreeBlockCount)
     {
@@ -478,95 +298,60 @@ if (err) {
 	printf ("if_gain = %d\n\t", if_gain);
 	printf ("decim = %d\n", decim);
 
+  
+	  /* Playback recorded data.  -------------------------------------------- */
+	  data.frameIndex = 0;
+	  
+	  err = Pa_Initialize();
+	  if( err != paNoError ) goto done;
+	  
+	  outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
+	  if (outputParameters.device == paNoDevice) {
+		  fprintf(stderr,"Error: No default output device.\n");
+		  goto done;
+	  }
+	  outputParameters.channelCount = 2;                     /* stereo output */
+	  outputParameters.sampleFormat =  PA_SAMPLE_TYPE;
+	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
+	  outputParameters.hostApiSpecificStreamInfo = NULL;
+	  
+	  printf("Begin playback.\n"); fflush(stdout);
+	  err = Pa_OpenStream(
+						  &stream,
+						  NULL, /* no input */
+						  &outputParameters,
+						  SAMPLE_RATE,
+						  FRAMES_PER_BUFFER,
+						  paClipOff,      /* we won't output out of range samples so don't bother clipping them */
+						  playCallback,
+						  &data );
+	  if( err != paNoError ) goto done;
+	  
+	  if( stream )
+	  {
+		  err = Pa_StartStream( stream );
+		  if( err != paNoError ) goto done;
+		  
+		  printf("Waiting for playback to finish.\n"); fflush(stdout);
+		  
+		  while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) Pa_Sleep(100);
+		  if( err < 0 ) goto done;
+		  
+		  err = Pa_CloseStream( stream );
+		  if( err != paNoError ) goto done;
+		  
+		  printf("Done.\n"); fflush(stdout);
+	  }
+	  
+  done:
+	  Pa_Terminate();
 
-/*
-    for(; fill_buff; fill_buff--)
-    {
-	
-	
-//      if(waveHeader[waveCurrentBlock].dwFlags&WHDR_PREPARED)
-//        waveOutUnprepareHeader(outHandle,&waveHeader[waveCurrentBlock],sizeof(WAVEHDR));
-		
-      for(index=0; index<audio_index; index++)
-          paudio_buffer->buffer[waveCurrentBlock][index]=paudio_scratch[index]; 		
-      waveHeader[waveCurrentBlock].lpData=(char*)&paudio_buffer->buffer[waveCurrentBlock][0];
-      waveHeader[waveCurrentBlock].dwBufferLength=(audio_index<<1); //length in bytes
-      waveHeader[waveCurrentBlock].dwUser=0;
-      waveHeader[waveCurrentBlock].dwLoops=0;
-      waveHeader[waveCurrentBlock].dwFlags=0;
-      waveOutPrepareHeader(outHandle,&waveHeader[waveCurrentBlock],sizeof(WAVEHDR));
-      waveOutWrite(outHandle,&waveHeader[waveCurrentBlock],sizeof(WAVEHDR));  //sends a data block to the given waveform-audio output device.
-
-      //InterlockedDecrement(&waveFreeBlockCount); // Use QMutex istedet?
-      waveCurrentBlock++;
-      if(waveCurrentBlock==NUM_OF_BUFFERS)
-        waveCurrentBlock=0;
-
-    } // end of  for(; fill_buff; fill_buff--)
-	
-*/
-
-	// Set up a callback function to generate output to the output unit
-    AURenderCallbackStruct input;	
-//	input.inputProc = MyRenderer;
-	 input.inputProc = (AURenderCallback)(AUOutputCallback);
-	input.inputProcRefCon = this;//NULL; // this
-
-	err = AudioUnitSetProperty (gOutputUnit, 
-								kAudioUnitProperty_SetRenderCallback,
-								kAudioUnitScope_Input,
-								0, 
-								&input, 
-								sizeof(input));
-
-	if (err) { 
-	
-		printf ("AudioUnitSetProperty-CB=%ld\n", err);
-		return;
-	}
-
-	
-	// Start the rendering
-	// The DefaultOutputUnit will do any format conversions to the format of the default device
-	err = AudioOutputUnitStart (gOutputUnit);
-	if (err) { 
-		printf ("AudioOutputUnitStart=%ld\n", err); 
-		return;
-	}
-			
-	// we call the CFRunLoopRunInMode to service any notifications that the audio
-	// system has to deal with
-	CFRunLoopRunInMode(kCFRunLoopDefaultMode, 2, false);
 
 
   } //while(run_flag)  
   
 
   sleep(NUM_OF_BUFFERS*PACKET_COUNT);
-
-/*
-  for(unsigned i=0; i<NUM_OF_BUFFERS; i++)
-  {
-    if(waveHeader[i].dwFlags&WHDR_PREPARED)
-      waveOutUnprepareHeader(outHandle,&waveHeader[i],sizeof(WAVEHDR));
-  } // end of for(unsigned i=0; i<NUM_OF_BUFFERS; i++)
-
-  if(wave_result==MMSYSERR_NOERROR)
-  {
-    waveOutReset(outHandle);
-    waveOutClose(outHandle);
-  } // end of if(wave_result==MMSYSERR_NOERROR)
-*/
-
-// REALLY after you're finished playing STOP THE AUDIO OUTPUT UNIT!!!!!!	
-// but we never get here because we're running until the process is nuked...	
-	verify_noerr (AudioOutputUnitStop (gOutputUnit));
-	
-    err = AudioUnitUninitialize (gOutputUnit);
-	if (err) { 
-		printf ("AudioUnitUninitialize=%ld\n", err); 
-		return;
-	}
 
 
   delete[] psamp_buffer;
@@ -578,7 +363,6 @@ if (err) {
 
   //return 0;
   
-  	// Clean up
-	CloseComponent (gOutputUnit);
+
 	
 }

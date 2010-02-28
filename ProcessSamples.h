@@ -27,6 +27,8 @@
 #include <CoreServices/CoreServices.h>
 #include <AudioUnit/AudioUnit.h> // AudioUnit
 
+#include "portaudio.h"
+
 
 #include <dsp001.h>  // AM, SSB ... fra halvor
 #include <dsp002.h>  // FM, ...
@@ -38,10 +40,59 @@
 #define PACKET_COUNT      32
 #define UP_FRACTION       0.5
 
+/* #define SAMPLE_RATE  (17932) // Test failure to open with this value. */
+#define SAMPLE_RATE  (44100)
+#define FRAMES_PER_BUFFER (1024)
+#define NUM_SECONDS     (5)
+#define NUM_CHANNELS    (2)
+/* #define DITHER_FLAG     (paDitherOff) */
+#define DITHER_FLAG     (0) /**/
+
+#ifndef M_PI
+#define M_PI  (3.14159265)
+#endif
+
+/* Select sample format. */
+#if 0
+#define PA_SAMPLE_TYPE  paFloat32
+typedef float SAMPLE;
+#define SAMPLE_SILENCE  (0.0f)
+#define PRINTF_S_FORMAT "%.8f"
+#elif 1
+#define PA_SAMPLE_TYPE  paInt16
+typedef short SAMPLE;
+#define SAMPLE_SILENCE  (0)
+#define PRINTF_S_FORMAT "%d"
+#elif 0
+#define PA_SAMPLE_TYPE  paInt8
+typedef char SAMPLE;
+#define SAMPLE_SILENCE  (0)
+#define PRINTF_S_FORMAT "%d"
+#else
+#define PA_SAMPLE_TYPE  paUInt8
+typedef unsigned char SAMPLE;
+#define SAMPLE_SILENCE  (128)
+#define PRINTF_S_FORMAT "%d"
+#endif
 
 class ProcessSamples : public QThread
  {	Q_OBJECT
 	private:
+	 
+	 typedef struct
+	 {
+		 int          frameIndex;  /* Index into sample array. */
+		 int          maxFrameIndex;
+		 		 //SAMPLE      *recordedSamples;
+		 short      *recordedSamples;
+	 }
+	 paTestData;
+	 
+	 // portaudio
+	 PaStreamParameters	 outputParameters;
+	 PaStream*           stream;
+	 PaError             err;// = paNoError;
+	 paTestData          data;
 
 	// fra main.cpp ProcessSamples :
 	unsigned int frames,j,n,index,disp_index,audio_index,fill_buff;
@@ -52,9 +103,6 @@ class ProcessSamples : public QThread
 	char audio_scratch[MAX_SAMPLES];
 	unsigned int  num_of_samples;
 	int nChannels;
-
-  AudioStreamBasicDescription  waveFormat;
-  AudioUnit	gOutputUnit;
 
 
 // Alsa player?
@@ -72,14 +120,11 @@ class ProcessSamples : public QThread
 	
 	LoadSamples *lSamptr;
 	
-  
-	// GnuRadio gr_audio_osx-sink.cc
-	static OSStatus AUOutputCallback (void *inRefCon, 
-				    AudioUnitRenderActionFlags *ioActionFlags, 
-				    const AudioTimeStamp *inTimeStamp, 
-				    UInt32 inBusNumber, 
-				    UInt32 inNumberFrames, 
-				    AudioBufferList *ioData);
+	 static int playCallback( const void *inputBuffer, void *outputBuffer,
+							 unsigned long framesPerBuffer,
+							 const PaStreamCallbackTimeInfo* timeInfo,
+							 PaStreamCallbackFlags statusFlags,
+							 void *userData );
 					
 		Float64 outSampleRate;
 
