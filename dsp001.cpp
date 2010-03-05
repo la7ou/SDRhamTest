@@ -3,15 +3,27 @@
 //-----------------------------------------------------------------------
 
 //#include <vcl.h>
-//#pragma hdrstop
+#pragma hdrstop
 
 #include  "dsp001.h"
-//#include  "systemc.h"
 
-//The following constants are for DSP finctiona
-#define   FIR_FILTER_SIZE 1024
-#define SAMPLE_SIZE       6
+//The following constants are for DSP functiona
+#define FIR_FILTER_SIZE 1024
+#define SAMPLE_SIZE     6
+#define SAMPMAXIMUM     30000    //this is the maximum sample amplitude
+#define AUDIOMAXIMUM    32767    //this is the maximum audio amplitude
 
+#ifdef LINUX
+  #define asm_b (					\
+     ".intel_syntax noprefix\n"
+  #define asm_e );
+  #define x1(y...) x2(y \n)
+  #define x2(y...) #y
+#else
+  #define asm_b asm {
+  #define asm_e }
+  #define x1(y...) y
+#endif
 
 //---------------------------------------------------------------------------
 // Constructor()
@@ -22,14 +34,25 @@ DSP001::DSP001()
   psig_buf=new int[FIR_FILTER_SIZE*2];
   pfilt_buf=new int[FIR_FILTER_SIZE*2];
   psignal_buf=psig_buf;
-
+  pfpsig_buf=new float[FIR_FILTER_SIZE*2];
+  pfpfilt_buf=new float[FIR_FILTER_SIZE*2];
+  pfpsignal_buf=pfpsig_buf;
+  
   for(unsigned int i=0;i <(FIR_FILTER_SIZE*2); i++)
   {
     psig_buf[i]=0;   //Intilaize all signal coeffesients to zero
     pfilt_buf[i]=0;   //Intilaize all filter coeffesients to zero
   }
-  pfilt_buf[0]=0x7fffff;  //set filter coeff 0 to 1 I-coeffesient
-  pfilt_buf[1]=0x7fffff;  //set filter coeff 1 to 1 Q-coeffesient
+  pfilt_buf[0]=0x7ffff;  //set filter coeff 0 to 1 I-coeffesient
+  pfilt_buf[1]=0x7ffff;  //set filter coeff 1 to 1 Q-coeffesient
+
+  for(unsigned int i=0;i <(FIR_FILTER_SIZE*2); i++)
+  {
+    pfpsig_buf[i]=0;   //Intilaize all signal coeffesients to zero
+    pfpfilt_buf[i]=0;   //Intilaize all filter coeffesients to zero
+  }
+  pfpfilt_buf[0]=1.0;  //set filter coeff 0 to 1 I-coeffesient
+  pfpfilt_buf[1]=1.0;  //set filter coeff 1 to 1 Q-coeffesient
   size_filter=17;
 }
 
@@ -41,6 +64,8 @@ DSP001::~DSP001()
 {
   delete[] psig_buf;
   delete[] pfilt_buf;
+  delete[] pfpsig_buf;
+  delete[] pfpfilt_buf;
 }
 
 //---------------------------------------------------------------------------
@@ -48,32 +73,31 @@ DSP001::~DSP001()
 
 void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
 {
-  asm
-  {
-      MOV   ECX,size      //Size of buffer to convert
-      TEST  ECX,-1
-      JZ    no_convert
-      MOV   EDI,dest_ptr  //EDI is pointer to output buffer
-      MOV   ESI,src_ptr   //ESI is pointer to source buffer
+  asm_b
+    x1(MOV   ECX,size)      //Size of buffer to convert
+    x1(TEST  ECX,-1)
+    x1(JZ    no_convert)
+    x1(MOV   EDI,dest_ptr)  //EDI is pointer to output buffer
+    x1(MOV   ESI,src_ptr)   //ESI is pointer to source buffer
 
-    next_sample:
-      MOV   EAX,[ESI]     //Here to process I-sample
-      BSWAP EAX
-      SAR   EAX,8
-      MOV   [EDI],EAX
-      ADD   ESI,(SAMPLE_SIZE/2)         //Inc source pointger
-      ADD   EDI,4         //Inc destination pointer
+    x1(next_sample:)
+    x1(MOV   EAX,[ESI])     //Here to process I-sample
+    x1(BSWAP EAX)
+    x1(SAR   EAX,8)
+    x1(MOV   [EDI],EAX)
+    x1(ADD   ESI,(SAMPLE_SIZE/2))         //Inc source pointger
+    x1(ADD   EDI,4)         //Inc destination pointer
 
-      MOV   EAX,ESI		//MOV   EAX,[ESI]     //Here to process Q-sample
-      BSWAP EAX
-      SAR   EAX,8
-      MOV   [EDI],EAX
-      ADD   ESI,(SAMPLE_SIZE/2)         //Inc source pointger
-      ADD   EDI,4         //Inc destination pointer
+    x1(MOV   EAX,[ESI])     //Here to process Q-sample
+    x1(BSWAP EAX)
+    x1(SAR   EAX,8)
+    x1(MOV   [EDI],EAX)
+    x1(ADD   ESI,(SAMPLE_SIZE/2))         //Inc source pointger
+    x1(ADD   EDI,4)         //Inc destination pointer
 
-      LOOP  next_sample
-    no_convert:
-  }
+    x1(LOOP  next_sample)
+    x1(no_convert:)
+  asm_e
 }
 
 //---------------------------------------------------------------------------
@@ -83,12 +107,22 @@ int *DSP001::GetFilterPtr(void)
   return pfilt_buf;
 }
 
+
+//---------------------------------------------------------------------------
+
+float *DSP001::GetFPFilterPtr(void)
+{
+  return pfpfilt_buf;
+}
+
+
 //---------------------------------------------------------------------------
 
 void  DSP001::SetFilterSize(unsigned int filter_size)
 {
   size_filter=filter_size;
   psignal_buf=psig_buf;
+  pfpsignal_buf=pfpsig_buf;
 }
 
 //---------------------------------------------------------------------------
@@ -102,77 +136,76 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
   int *pbuf_signal=psignal_buf;
   unsigned int filtersize=size_filter;
 
-  asm
-  {
-      MOV     ECX,size
-      TEST    ECX,-1
-      JZ      no_convolute
+  asm_b
+    x1(MOV     ECX,size)
+    x1(TEST    ECX,-1)
+    x1(JZ      no_convolute)
                   //here to perform convolution
-      MOV     EBX,pbuf_signal //EBX is pointer to data line
-      MOV     ESI,src_ptr   //ESI is pointer to source data
-      MOV     EDI,dest_ptr  //EDI is pointer to destination data
-    do_next_conv:
-      MOV     EAX,[ESI]
-      MOV     [EBX],EAX   //move I-sample to signal line
-      MOV     EAX,[ESI+4]
-      MOV     [EBX+4],EAX   //move Q-sample to signal line
-      CMP     EBX,end_of_buffer
-      JGE     ret_start_buffer
-      ADD     EBX,8       //next pos in signal buffer
-      JMP     do_convolute
-    ret_start_buffer:
-      MOV     EBX,pbuf_sig
-    do_convolute:
-      PUSH    ECX
-      PUSH    EDI
-      MOV     ECX,filtersize
-      MOV     EDI,pbuf_filt
-	  MOV     i_accum[0],0		//MOV     i_accum,0
-      MOV     i_accum[4],0		// MOV     i_accum+4,0      //clear I sum reg before start
-      MOV     q_accum[0],0		//MOV     q_accum,0
-      MOV     q_accum[4],0		//MOV     q_accum+4,0      //clear Q sum reg before start
-	  	        
-    filter_loop:
-      MOV     EAX,[EBX]   //I-sample processing
-		IMUL    EDI				//IMUL	[EDI]
-		ADD     i_accum[0],EAX		//ADD     i_accum,EAX
-		ADC     i_accum[4],EDX		//ADC     i_accum+4,EDX
-		MOV     EAX,[EBX+4]   //Q-sample processing
-		IMUL    EDI		//		IMUL    [EDI+4]  
-		ADD     q_accum[0], EAX		//ADD     q_accum,EAX
-		ADC     q_accum[4],EDX		//ADC     q_accum+4,EDX
-      CMP     EBX,end_of_buffer
-      JGE     new_start_buffer
-      ADD     EBX,8
-      JMP     next_loop
-    new_start_buffer:
-      MOV     EBX,pbuf_sig
-    next_loop:
-      ADD     EDI,8
-      LOOP    filter_loop
+    x1(MOV     EBX,pbuf_signal) //EBX is pointer to data line
+    x1(MOV     ESI,src_ptr)   //ESI is pointer to source data
+    x1(MOV     EDI,dest_ptr)  //EDI is pointer to destination data
+    x1(do_next_conv:)
+    x1(MOV     EAX,[ESI])
+    x1(MOV     [EBX],EAX)   //move I-sample to signal line
+    x1(MOV     EAX,[ESI+4])
+    x1(MOV     [EBX+4],EAX)   //move Q-sample to signal line
+    x1(CMP     EBX,end_of_buffer)
+    x1(JGE     ret_start_buffer)
+    x1(ADD     EBX,8)       //next pos in signal buffer
+    x1(JMP     do_convolute)
+    x1(ret_start_buffer:)
+    x1(MOV     EBX,pbuf_sig)
+    x1(do_convolute:)
+    x1(PUSH    ECX)
+    x1(PUSH    EDI)
+    x1(MOV     ECX,filtersize)
+    x1(MOV     EDI,pbuf_filt)
+    x1(MOV     i_accum,0)
+    x1(MOV     i_accum+4,0)      //clear I sum reg before start
+    x1(MOV     q_accum,0)
+    x1(MOV     q_accum+4,0)      //clear Q sum reg before start
 
-      POP     EDI
-      POP     ECX
+    x1(filter_loop:)
+    x1(MOV     EAX,[EBX])   //I-sample processing
+    x1(IMUL    [EDI])
+    x1(ADD     i_accum,EAX)
+    x1(ADC     i_accum+4,EDX)
+    x1(MOV     EAX,[EBX+4])   //Q-sample processing
+    x1(IMUL    [EDI+4])
+    x1(ADD     q_accum,EAX)
+    x1(ADC     q_accum+4,EDX)
+    x1(CMP     EBX,end_of_buffer)
+    x1(JGE     new_start_buffer)
+    x1(ADD     EBX,8)
+    x1(JMP     next_loop)
+    x1(new_start_buffer:)
+    x1(MOV     EBX,pbuf_sig)
+    x1(next_loop:)
+    x1(ADD     EDI,8)
+    x1(LOOP    filter_loop)
 
-      MOV     EAX,i_accum+4   //I-sample amplitude shift
-      SHL     EAX,8
-	  MOV     AL,BYTE PTR i_accum[3]	// MOV     AL,BYTE PTR i_accum+3
-      MOV     [EDI],EAX
-      MOV     EAX,q_accum+4   //Q-sample amplitude shift
-      SHL     EAX,8
-       MOV     AL,BYTE PTR q_accum[3]	//MOV     AL,BYTE PTR q_accum+3
-      MOV     [EDI+4],EAX
+    x1(POP     EDI)
+    x1(POP     ECX)
 
-      ADD     EDI,8     //next pos in destnation buffer
-      ADD     ESI,8     //next pos in source buffer
-      DEC     ECX
-      JZ      conv_done
-      JMP     do_next_conv
-    conv_done:
-      MOV     pbuf_signal,EBX
+    x1(MOV     EAX,i_accum+4)   //I-sample amplitude shift
+    x1(SHL     EAX,8)
+    x1(MOV     AL,BYTE PTR i_accum+3)
+    x1(MOV     [EDI],EAX)
+    x1(MOV     EAX,q_accum+4)   //Q-sample amplitude shift
+    x1(SHL     EAX,8)
+    x1(MOV     AL,BYTE PTR q_accum+3)
+    x1(MOV     [EDI+4],EAX)
 
-    no_convolute:
-  }
+    x1(ADD     EDI,8)     //next pos in destnation buffer
+    x1(ADD     ESI,8)     //next pos in source buffer
+    x1(DEC     ECX)
+    x1(JZ      conv_done)
+    x1(JMP     do_next_conv)
+    x1(conv_done:)
+    x1(MOV     pbuf_signal,EBX)
+
+    x1(no_convolute:)
+  asm_e
   psignal_buf=pbuf_signal;
 }
 
@@ -189,136 +222,159 @@ void DSP001::MMXConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
   int *pbuf_signal=psignal_buf;
   unsigned int filtersize=size_filter;
 
-  asm
-  {
-      MOV     ECX,size
-      TEST    ECX,-1
-      JZ      no_convolute
+  asm_b
+
+    x1(MOV     ECX,size)
+    x1(TEST    ECX,-1)
+    x1(JZ      no_convolute)
                   //here to perform convolution
-      MOV     EBX,pbuf_signal //EBX is pointer to data line
-      MOV     ESI,src_ptr   //ESI is pointer to source data
-      MOV     EDI,dest_ptr  //EDI is pointer to destination data
-    next_conv:
-      MOV     EAX,[ESI]
-      MOV     [EBX],EAX   //move I-sample to signal line
-      MOV     EAX,[ESI+4]
-      MOV     [EBX+4],EAX   //move Q-sample to signal line
-      CMP     EBX,end_of_buffer
-      JGE     ret_start_buffer
-      ADD     EBX,8       //next pos in signal buffer
-      JMP     do_convolute
-    ret_start_buffer:
-      MOV     EBX,pbuf_sig
-    do_convolute:
-      PUSH    ECX
-      PUSH    EDI
-      MOV     ECX,filtersize
-      MOV     EDI,pbuf_filt
-      MOVQ    MM2,QWORD PTR dummy   //clear sum reg before start
-    filter_loop:
-      MOVQ    MM0,QWORD PTR [EBX]
-      PSRAD   MM0,8
-      PAND    MM0,QWORD PTR mask
-      MOVQ    MM1,QWORD PTR [EDI]
-      PSRAD   MM1,8
-      PAND    MM1,QWORD PTR mask
-      PMADDWD MM0,MM1
-      PADDD   MM2,MM0
-      CMP     EBX,end_of_buffer
-      JGE     new_start_buffer
-      ADD     EBX,8
-      JMP     next_loop
-    new_start_buffer:
-      MOV     EBX,pbuf_sig
-    next_loop:
-      ADD     EDI,8
-      LOOP    filter_loop
-      POP     EDI
-      POP     ECX
+    x1(MOV     EBX,pbuf_signal) //EBX is pointer to data line
+    x1(MOV     ESI,src_ptr)   //ESI is pointer to source data
+    x1(MOV     EDI,dest_ptr)  //EDI is pointer to destination data
+    x1(next_conv:)
+    x1(MOV     EAX,[ESI])
+    x1(MOV     [EBX],EAX)   //move I-sample to signal line
+    x1(MOV     EAX,[ESI+4])
+    x1(MOV     [EBX+4],EAX)   //move Q-sample to signal line
+    x1(CMP     EBX,end_of_buffer)
+    x1(JGE     ret_start_buffer)
+    x1(ADD     EBX,8)       //next pos in signal buffer
+    x1(JMP     do_convolute)
+    x1(ret_start_buffer:)
+    x1(MOV     EBX,pbuf_sig)
+    x1(do_convolute:)
+    x1(PUSH    ECX)
+    x1(PUSH    EDI)
+    x1(MOV     ECX,filtersize)
+    x1(MOV     EDI,pbuf_filt)
+    x1(MOVQ    MM2,QWORD PTR dummy)   //clear sum reg before start
+    x1(filter_loop:)
+    x1(MOVQ    MM0,QWORD PTR [EBX])
+    x1(PSRAD   MM0,8)
+    x1(PAND    MM0,QWORD PTR mask)
+    x1(MOVQ    MM1,QWORD PTR [EDI])
+    x1(PSRAD   MM1,8)
+    x1(PAND    MM1,QWORD PTR mask)
+    x1(PMADDWD MM0,MM1)
+    x1(PADDD   MM2,MM0)
+    x1(CMP     EBX,end_of_buffer)
+    x1(JGE     new_start_buffer)
+    x1(ADD     EBX,8)
+    x1(JMP     next_loop)
+    x1(new_start_buffer:)
+    x1(MOV     EBX,pbuf_sig)
+    x1(next_loop:)
+    x1(ADD     EDI,8)
+    x1(LOOP    filter_loop)
+    x1(POP     EDI)
+    x1(POP     ECX)
 
-      PSRAD   MM2,8     //Shift result to 24 bit
-      MOVQ    QWORD PTR [EDI],MM2
-      ADD     EDI,8     //next pos in destnation buffer
-      ADD     ESI,8     //next pos in source buffer
-      LOOP    next_conv
+    x1(PSRAD   MM2,8)     //Shift result to 24 bit
+    x1(MOVQ    QWORD PTR [EDI],MM2)
+    x1(ADD     EDI,8)     //next pos in destnation buffer
+    x1(ADD     ESI,8)     //next pos in source buffer
+    x1(LOOP    next_conv)
 
-      MOV     pbuf_signal,EBX
-      EMMS
+    x1(MOV     pbuf_signal,EBX)
+    x1(EMMS)
 
-    no_convolute:
-  }
+    x1(no_convolute:)
+  asm_e
   psignal_buf=pbuf_signal;
 }
 
 
 //---------------------------------------------------------------------------
 
-void DSP001::SSEConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
+void DSP001::SSEConvolute(float *src_ptr,float *dest_ptr,unsigned int size)
 {
-  float dummy[]={0,0,0,0};
-  int *end_of_buffer=&psig_buf[(size_filter<<1)-2];
-  int *pbuf_sig=psig_buf;
-  int *pbuf_filt=pfilt_buf;
-  int *pbuf_signal=psignal_buf;
+  float dummy[]={0,0};
+  float *end_of_buffer=&pfpsig_buf[(size_filter<<1)-2];
+  float *pbuf_sig=pfpsig_buf;
+  float *pbuf_filt=pfpfilt_buf;
+  float *pbuf_signal=pfpsignal_buf;
   unsigned int filtersize=size_filter;
 
-  asm
-  {
-      MOV     ECX,size
-      TEST    ECX,-1
-      JZ      no_convolute
+  asm_b
+    x1( MOV     ECX,size)
+      x1( TEST    ECX,-1)
+      x1( JZ      no_convolute)
                   //here to perform convolution
-      MOV     EBX,pbuf_signal //EBX is pointer to data line
-      MOV     ESI,src_ptr   //ESI is pointer to source data
-      MOV     EDI,dest_ptr  //EDI is pointer to destination data
-    next_conv:
-      MOV     EAX,[ESI]
-      MOV     [EBX],EAX   //move I-sample to signal line
-      MOV     EAX,[ESI+4]
-      MOV     [EBX+4],EAX   //move Q-sample to signal line
-      CMP     EBX,end_of_buffer
-      JGE     ret_start_buffer
-      ADD     EBX,8       //next pos in signal buffer
-      JMP     do_convolute
-    ret_start_buffer:
-      MOV     EBX,pbuf_sig
-    do_convolute:
-      PUSH    ECX
-      PUSH    EDI
-      MOV     ECX,filtersize
-      MOV     EDI,pbuf_filt	
-	  MOVUPS  XMM2,QWORD PTR dummy // 	  MOVUPS  XMM2,DQWORD PTR dummy   //clear sum reg before start
-    filter_loop:
-      CVTPI2PS XMM0,QWORD PTR [EBX]
-      CVTPI2PS XMM1,QWORD PTR [EDI]
-      MULPS   XMM0,XMM1
-      ADDPS   XMM2,XMM0
-      CMP     EBX,end_of_buffer
-      JGE     new_start_buffer
-      ADD     EBX,8
-      JMP     next_loop
-    new_start_buffer:
-      MOV     EBX,pbuf_sig
-    next_loop:
-      ADD     EDI,8
-      LOOP    filter_loop
-      POP     EDI
-      POP     ECX
+      x1( MOV     EBX,pbuf_signal) //EBX is pointer to data line
+      x1( MOV     ESI,src_ptr)   //ESI is pointer to source data
+      x1( MOV     EDI,dest_ptr)  //EDI is pointer to destination data
+      x1(next_conv:)
+      x1( MOV     EAX,[ESI])
+      x1( MOV     [EBX],EAX)   //move I-sample to signal line
+      x1( MOV     EAX,[ESI+4])
+      x1( MOV     [EBX+4],EAX)   //move Q-sample to signal line
+      x1( CMP     EBX,end_of_buffer)
+      x1( JGE     ret_start_buffer)
+      x1( ADD     EBX,8)       //next pos in signal buffer
+      x1( JMP     do_convolute)
+      x1(ret_start_buffer:)
+      x1( MOV     EBX,pbuf_sig)
+      x1(do_convolute:)
+      x1( PUSH    ECX)
+      x1( PUSH    EDI)
+      x1( MOV     ECX,filtersize)
+      x1( MOV     EDI,pbuf_filt)
+      x1( MOVLPS  XMM2,QWORD PTR dummy)   //clear sum reg before start
+      x1(filter_loop:)
+      x1( MOVLPS  XMM0,QWORD PTR [EBX])
+      x1( MOVLPS  XMM1,QWORD PTR [EDI])
+      x1( MULPS   XMM0,XMM1)
+      x1( ADDPS   XMM2,XMM0)
+      x1( CMP     EBX,end_of_buffer)
+      x1( JGE     new_start_buffer)
+      x1( ADD     EBX,8)
+      x1( JMP     next_loop)
+      x1(new_start_buffer:)
+      x1( MOV     EBX,pbuf_sig)
+      x1(next_loop:)
+      x1( ADD     EDI,8)
+      x1( LOOP    filter_loop)
+      x1( POP     EDI)
+      x1( POP     ECX)
 
-      CVTPS2PI MM0,XMM2
-      MOVQ    QWORD PTR [EDI],MM0
-      ADD     EDI,8     //next pos in destnation buffer
-      ADD     ESI,8     //next pos in source buffer
-      LOOP    next_conv
+      x1( MOVLPS  QWORD PTR [EDI],XMM2)
+      x1( ADD     EDI,8)     //next pos in destnation buffer
+      x1( ADD     ESI,8)     //next pos in source buffer
+      x1( LOOP    next_conv)
 
-      MOV     pbuf_signal,EBX
-      EMMS
-
-    no_convolute:
-  }
-  psignal_buf=pbuf_signal;
+      x1( MOV     pbuf_signal,EBX)
+      x1(no_convolute:)
+  asm_e
+  pfpsignal_buf=pbuf_signal;
 }
 
+//---------------------------------------------------------------------------
+
+void DSP001::SSEdemodSSB(float *pscr,float *pdest,unsigned int size,unsigned int mode)
+{
+  asm_b
+    x1(MOV       ESI,pscr)
+    x1(MOV       EDI,pdest)
+    x1(MOV       ECX,size)
+
+    x1(dodemodssb:)
+    x1(MOVLPS    XMM0,QWORD PTR [ESI]) //source sample
+    x1(MOVAPS    XMM1,XMM0)            //copy sample to XMM1
+    x1(SHUFPS    XMM1,XMM1,0x01)       //Mov Q-sample to low DWORD of XMM1
+    x1(MOV       EAX,mode)
+    x1(OR        EAX,EAX)
+    x1(JZ        low_side)
+    x1(ADDSS     XMM0,XMM1)
+    x1(JMP       do_side)
+    x1(low_side:)
+    x1(SUBSS     XMM0,XMM1)
+    x1(do_side:)
+    x1(MOVSS     DWORD PTR [EDI],XMM0)
+    x1(ADD       ESI,8)
+    x1(ADD       EDI,4)
+    x1(LOOP      dodemodssb)
+  asm_e
+}
 
 //---------------------------------------------------------------------------
 
@@ -326,82 +382,79 @@ void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned i
 {
   int i_sample[2],q_sample[2];
 
-  asm
-  {
-      MOV     ECX,size
-      TEST    ECX,-1
-      JZ      no_demod
+  asm_b
+    x1(MOV     ECX,size)
+    x1(TEST    ECX,-1)
+    x1(JZ      no_demod)
 
-      SHR     ECX,1     //two samples is processed in each loop
-      MOV     ESI,src_ptr
-      MOV     EDI,dest_ptr
-    demod_loop:
-      MOV     EAX,[ESI]
-      MOV     i_sample[0],EAX	//MOV     i_sample,EAX
-      MOV     EAX,[ESI+8]
-      MOV     i_sample[4],EAX	//MOV     i_sample+4,EAX
-      MOV     EAX,[ESI+4]
-      MOV     q_sample[0],EAX	//MOV     q_sample,EAX
-      MOV     EAX,[ESI+12]
-      MOV     q_sample[4],EAX	//MOV     q_sample+4,EAX
-      MOVQ    MM0,QWORD PTR i_sample
-      PSRAD   MM0,1     //divide by two before summation
-      MOVQ    MM1,QWORD PTR q_sample
-      PSRAD   MM1,1
-      test    mode,-1
-      JNZ     do_sub
-      PADDD   MM0,MM1
-      JMP     sum_done
-    do_sub:
-      PSUBD   MM0,MM1
-    sum_done:
-      MOVQ    QWORD PTR [EDI],MM0
-      ADD     ESI,16
-      ADD     EDI,8
-      LOOP    demod_loop
+    x1(SHR     ECX,1)     //two samples is processed in each loop
+    x1(MOV     ESI,src_ptr)
+    x1(MOV     EDI,dest_ptr)
+    x1(demod_loop:)
+    x1(MOV     EAX,[ESI])
+    x1(MOV     i_sample,EAX)
+    x1(MOV     EAX,[ESI+8])
+    x1(MOV     i_sample+4,EAX)
+    x1(MOV     EAX,[ESI+4])
+    x1(MOV     q_sample,EAX)
+    x1(MOV     EAX,[ESI+12])
+    x1(MOV     q_sample+4,EAX)
+    x1(MOVQ    MM0,QWORD PTR i_sample)
+    x1(PSRAD   MM0,1)     //divide by two before summation
+    x1(MOVQ    MM1,QWORD PTR q_sample)
+    x1(PSRAD   MM1,1)
+    x1(test    mode,-1)
+    x1(JNZ     do_sub)
+    x1(PADDD   MM0,MM1)
+    x1(JMP     sum_done)
+    x1(do_sub:)
+    x1(PSUBD   MM0,MM1)
+    x1(sum_done:)
+    x1(MOVQ    QWORD PTR [EDI],MM0)
+    x1(ADD     ESI,16)
+    x1(ADD     EDI,8)
+    x1(LOOP    demod_loop)
 
-      EMMS
-    no_demod:
-  }
+    x1(EMMS)
+    x1(no_demod:)
+  asm_e
 }
 
 //---------------------------------------------------------------------------
 
-void DSP001::MakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size,int gain, unsigned int decim)
+void DSP001::SSEMakeAudioSample(float *src_ptr,short *dest_ptr,unsigned int size,unsigned int decim)
 {
   unsigned int byteoffset;
+  float amplitude;
 
   byteoffset=4*decim;
-  
-  asm
-  {
-      MOV     EBX,size
-      MOV     ECX,gain
-      TEST    EBX,-1
-      JZ      no_conv   //do nothing if size is zero
-      MOV     ESI,src_ptr
-      MOV     EDI,dest_ptr
-      TEST    ECX,0x80000000  //see if sign bit is set anf gain is negative
-      JZ      do_inc_gain  //if shift count positive increment gain
-      NOT     ECX       //here if shift count negative increment gain
-      INC     ECX       //negative shift count is now converted to positive
-    do_dec_gain:         //here if decrement gain
-      MOV     EAX,[ESI]
-      SAR     EAX,CL
-      MOV     [EDI],AX
-      ADD     ESI,byteoffset
-      ADD     EDI,2
-      DEC     EBX
-      JNZ     do_dec_gain
-      JMP     no_conv
-    do_inc_gain:
-      MOV     EAX,[ESI]
-      SAL     EAX,CL
-      MOV     [EDI],AX
-      ADD     ESI,byteoffset
-      ADD     EDI,2
-      DEC     EBX
-      JNZ     do_inc_gain
-    no_conv:
-  }
+  amplitude=SAMPMAXIMUM;
+
+  asm_b
+    x1(MOV       ECX,size)
+    x1(TEST      ECX,-1)
+    x1(JZ        no_conv)   //do nothing if size is zero
+    x1(MOV       ESI,src_ptr)
+    x1(MOV       EDI,dest_ptr)
+    x1(MOVSS     XMM1,DWORD PTR amplitude)
+
+    x1(do_dec_gain:)
+    x1(MOVSS     XMM0,DWORD PTR [ESI])
+    x1(MULSS     XMM0,XMM1)   //scale sample for 16-bit audio
+    x1(CVTSS2SI  EAX,XMM0)
+    x1(CMP       EAX,AUDIOMAXIMUM)
+    x1(JLE       pos_lev_ok)
+    x1(MOV       AX,AUDIOMAXIMUM)  //saturate AX to max positiv value
+    x1(JMP       level_ok)
+    x1(pos_lev_ok:)
+    x1(CMP       EAX,-AUDIOMAXIMUM)
+    x1(JGE       level_ok)
+    x1(MOV       AX,-AUDIOMAXIMUM)  //saturate AX to max negative value
+    x1(level_ok:)
+    x1(MOV       [EDI],AX)
+    x1(ADD       ESI,byteoffset)
+    x1(ADD       EDI,2)
+    x1(LOOP      do_dec_gain)
+    x1(no_conv:)
+  asm_e
 }

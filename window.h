@@ -15,9 +15,9 @@
 #include <QtGui> //QSpinBox
 
 #include "ezload.h"
-#include "Loadsamples.h"
+#include "LoadSamples.h"
 #include "ProcessSamples.h"
-#include "ReadSamples.h"
+#include "Readsamples.h"
 
 // http://web.mit.edu/qt-dynamic_v4.2.1/www/widgets-charactermap.html
 class QFontComboBox; // midlertidig

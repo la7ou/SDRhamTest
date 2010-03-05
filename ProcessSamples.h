@@ -125,9 +125,10 @@ class ProcessSamples : public QThread
 							 const PaStreamCallbackTimeInfo* timeInfo,
 							 PaStreamCallbackFlags statusFlags,
 							 void *userData );
-					
+#ifdef LINUX	
+	typedef double Float64;				
+#endif
 		Float64 outSampleRate;
-
 	
 	public:
 		ProcessSamples(QObject *parent, LoadSamples *lsam);
