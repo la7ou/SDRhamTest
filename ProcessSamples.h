@@ -19,13 +19,13 @@
 
 #include <QtGui>
 
-//#include <alsa/asoundlib.h> // sjekk http://lists.trolltech.com/qt-interest/2007-01/thread00147-0.html
+#include <alsa/asoundlib.h> // sjekk http://lists.trolltech.com/qt-interest/2007-01/thread00147-0.html
 //#include <AudioFile.h> // http://developer.apple.com/documentation/MusicAudio/Conceptual/CoreAudioOverview/CoreAudioFrameworks/chapter_950_section_2.html#//apple_ref/doc/uid/TP40003577-CH9-DontLinkElementID_7
 // http://developer.apple.com/audio/ //AudioToolbox og AudioUnit Frameworks
-#include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
+//#include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
 
-#include <CoreServices/CoreServices.h>
-#include <AudioUnit/AudioUnit.h> // AudioUnit
+//#include <CoreServices/CoreServices.h>
+//#include <AudioUnit/AudioUnit.h> // AudioUnit
 
 #include "portaudio.h"
 

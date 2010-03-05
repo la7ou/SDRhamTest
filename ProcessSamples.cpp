@@ -45,10 +45,10 @@
 #include <dsp002.h>  // FM, ...
 #include <dsppsk31.h>  // PSK, ...
 
-#include <CoreServices/CoreServices.h>
-#include <AudioUnit/AudioUnit.h> // AudioUnit
-#include <AudioToolbox/AudioToolbox.h>
-#include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
+//#include <CoreServices/CoreServices.h>
+//#include <AudioUnit/AudioUnit.h> // AudioUnit
+//#include <AudioToolbox/AudioToolbox.h>
+//#include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
 
 #include "portaudio.h"
 
@@ -222,7 +222,7 @@ if_gain=0;
         {
           case 0: // AM
             pDSP002->FPdemodAM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
-            pDSP001->MakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
             audio_index=audio_index+num_of_samples;
             break;
 
@@ -233,21 +233,21 @@ if_gain=0;
             pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             for(unsigned int m=0,k=0; m<MaxSamplesFrame; m=m+1,k=k+2)
               pdemod_buffer[m]=pfilter_buffer[k];
-            pDSP001->MakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,-8,decim);
+            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,-8,decim);
             audio_index=audio_index+num_of_samples;
             break;
 
           case 2: //USB
             pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,0);
-            pDSP001->MakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
             audio_index=audio_index+num_of_samples;
             break;
 
           case 3: //LSB
             pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,1);
-            pDSP001->MakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
             audio_index=audio_index+num_of_samples;
             break;
 
