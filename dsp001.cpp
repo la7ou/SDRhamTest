@@ -3,9 +3,10 @@
 //-----------------------------------------------------------------------
 
 //#include <vcl.h>
-#pragma hdrstop
+//#pragma hdrstop
 
 #include  "dsp001.h"
+#include <arpa/inet.h>  // ntohs()
 
 //The following constants are for DSP functiona
 #define FIR_FILTER_SIZE 1024
@@ -73,6 +74,12 @@ DSP001::~DSP001()
 
 void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
 {
+#ifndef ASM
+	for (unsigned int i=0;i<size;i++)
+	{
+		dest_ptr[i] = ntohs(src_ptr[i]); // converted from network () to host byte order.
+	}
+#else
   asm_b
     x1(MOV   ECX,size)      //Size of buffer to convert
     x1(TEST  ECX,-1)
@@ -98,6 +105,7 @@ void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
     x1(LOOP  next_sample)
     x1(no_convert:)
   asm_e
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -136,6 +144,9 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
   int *pbuf_signal=psignal_buf;
   unsigned int filtersize=size_filter;
 
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
     x1(MOV     ECX,size)
     x1(TEST    ECX,-1)
@@ -161,19 +172,19 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
     x1(MOV     ECX,filtersize)
     x1(MOV     EDI,pbuf_filt)
     x1(MOV     i_accum,0)
-    x1(MOV     i_accum+4,0)      //clear I sum reg before start
+    x1(MOV     i_accum[4],0) //i_accum+4,0)      //clear I sum reg before start
     x1(MOV     q_accum,0)
-    x1(MOV     q_accum+4,0)      //clear Q sum reg before start
+    x1(MOV     q_accum[4],0)//q_accum+4,0)      //clear Q sum reg before start
 
     x1(filter_loop:)
     x1(MOV     EAX,[EBX])   //I-sample processing
     x1(IMUL    [EDI])
     x1(ADD     i_accum,EAX)
-    x1(ADC     i_accum+4,EDX)
+    x1(ADC     i_accum[4],EDX)//i_accum+4,EDX)
     x1(MOV     EAX,[EBX+4])   //Q-sample processing
     x1(IMUL    [EDI+4])
     x1(ADD     q_accum,EAX)
-    x1(ADC     q_accum+4,EDX)
+    x1(ADC     q_accum[4],EDX)//q_accum+4,EDX)
     x1(CMP     EBX,end_of_buffer)
     x1(JGE     new_start_buffer)
     x1(ADD     EBX,8)
@@ -189,11 +200,11 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
 
     x1(MOV     EAX,i_accum+4)   //I-sample amplitude shift
     x1(SHL     EAX,8)
-    x1(MOV     AL,BYTE PTR i_accum+3)
+    x1(MOV     AL,BYTE PTR i_accum[3])//PTR i_accum+3)
     x1(MOV     [EDI],EAX)
     x1(MOV     EAX,q_accum+4)   //Q-sample amplitude shift
     x1(SHL     EAX,8)
-    x1(MOV     AL,BYTE PTR q_accum+3)
+    x1(MOV     AL,BYTE PTR q_accum[3]) // PTR q_accum+3)
     x1(MOV     [EDI+4],EAX)
 
     x1(ADD     EDI,8)     //next pos in destnation buffer
@@ -206,6 +217,7 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
 
     x1(no_convolute:)
   asm_e
+#endif
   psignal_buf=pbuf_signal;
 }
 
@@ -222,6 +234,9 @@ void DSP001::MMXConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
   int *pbuf_signal=psignal_buf;
   unsigned int filtersize=size_filter;
 
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
 
     x1(MOV     ECX,size)
@@ -280,6 +295,7 @@ void DSP001::MMXConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
 
     x1(no_convolute:)
   asm_e
+#endif
   psignal_buf=pbuf_signal;
 }
 
@@ -295,6 +311,9 @@ void DSP001::SSEConvolute(float *src_ptr,float *dest_ptr,unsigned int size)
   float *pbuf_signal=pfpsignal_buf;
   unsigned int filtersize=size_filter;
 
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
     x1( MOV     ECX,size)
       x1( TEST    ECX,-1)
@@ -345,6 +364,7 @@ void DSP001::SSEConvolute(float *src_ptr,float *dest_ptr,unsigned int size)
       x1( MOV     pbuf_signal,EBX)
       x1(no_convolute:)
   asm_e
+#endif
   pfpsignal_buf=pbuf_signal;
 }
 
@@ -352,6 +372,9 @@ void DSP001::SSEConvolute(float *src_ptr,float *dest_ptr,unsigned int size)
 
 void DSP001::SSEdemodSSB(float *pscr,float *pdest,unsigned int size,unsigned int mode)
 {
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
     x1(MOV       ESI,pscr)
     x1(MOV       EDI,pdest)
@@ -374,6 +397,7 @@ void DSP001::SSEdemodSSB(float *pscr,float *pdest,unsigned int size,unsigned int
     x1(ADD       EDI,4)
     x1(LOOP      dodemodssb)
   asm_e
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -381,7 +405,10 @@ void DSP001::SSEdemodSSB(float *pscr,float *pdest,unsigned int size,unsigned int
 void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned int mode)
 {
   int i_sample[2],q_sample[2];
-
+	
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
     x1(MOV     ECX,size)
     x1(TEST    ECX,-1)
@@ -394,11 +421,11 @@ void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned i
     x1(MOV     EAX,[ESI])
     x1(MOV     i_sample,EAX)
     x1(MOV     EAX,[ESI+8])
-    x1(MOV     i_sample+4,EAX)
+    x1(MOV     i_sample[4],EAX) //i_sample+4,EAX)
     x1(MOV     EAX,[ESI+4])
     x1(MOV     q_sample,EAX)
     x1(MOV     EAX,[ESI+12])
-    x1(MOV     q_sample+4,EAX)
+    x1(MOV     q_sample[4],EAX) //q_sample+4,EAX)
     x1(MOVQ    MM0,QWORD PTR i_sample)
     x1(PSRAD   MM0,1)     //divide by two before summation
     x1(MOVQ    MM1,QWORD PTR q_sample)
@@ -418,6 +445,7 @@ void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned i
     x1(EMMS)
     x1(no_demod:)
   asm_e
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -429,7 +457,10 @@ void DSP001::SSEMakeAudioSample(float *src_ptr,short *dest_ptr,unsigned int size
 
   byteoffset=4*decim;
   amplitude=SAMPMAXIMUM;
-
+	
+#ifndef ASM
+    // C kode her 
+#else
   asm_b
     x1(MOV       ECX,size)
     x1(TEST      ECX,-1)
@@ -457,4 +488,5 @@ void DSP001::SSEMakeAudioSample(float *src_ptr,short *dest_ptr,unsigned int size
     x1(LOOP      do_dec_gain)
     x1(no_conv:)
   asm_e
+#endif
 }
