@@ -450,7 +450,7 @@ void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned i
 
 //---------------------------------------------------------------------------
 
-void DSP001::SSEMakeAudioSample(float *src_ptr,short *dest_ptr,unsigned int size,unsigned int decim)
+void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, unsigned int if_gain, unsigned int decim)
 {
   unsigned int byteoffset;
   float amplitude;

@@ -19,7 +19,7 @@ class DSP001
     void  SetFilterSize(unsigned int);
     void  MMXdemodSSB(int*, int*, unsigned int, unsigned int);
     void  SSEdemodSSB(float*, float*, unsigned int, unsigned int);
-    void  SSEMakeAudioSample(float *,short *, unsigned int, unsigned int);
+    void  SSEMakeAudioSample(int*,short *, unsigned int, unsigned int, unsigned int);
 
   private:
     int *psig_buf,*pfilt_buf,*psignal_buf;
