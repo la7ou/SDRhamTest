@@ -30,34 +30,43 @@ moc_* er filer generert automatisk av Qt
 
 1. Installere verktøy
    Qt Open Source Edition (Windows/X11/Mac) lastes ned herfra :
-   - http://trolltech.com/developer/downloads/qt/index
+   - http://qt.nokia.com/downloads/
 
    libusb finner du her:
 http://libusb.sourceforge.net/http://libusb-win32.sourceforge.net/
+http://www.libusb.org/
+http://www.libusb.org/wiki/libusb-compat-0.1
 
-   På Ubuntu kan det gjøres enkelt det med Synaptic package manager, søk på libusb og Qt4
+   Portaudio finner du her:
+http://www.portaudio.com/download.html
+
+   På Ubuntu kan det gjøres enkelt det med Synaptic package manager, søk på libusb, portaudio og Qt4
 
    Git, scm
 	http://git-scm.com/
 	http://code.google.com/p/git-osx-installer/wiki/OpenInGitGui
 
-   qwt, grafisk presentasjon
+   qwt, grafisk presentasjon <tba>
 
 2. Gjøre klar prosjektet
 qmake -project
 qmake
 
-Legg til -lusb på slutten av LIBS i den genererte Makefile
-LIBS          = ..... -lusb
+Legg til -lusb og -lportaudio på slutten av LIBS i den genererte Makefile
+LIBS          = ..... -lusb -lportaudio
 I xcode,Existing Framework :
 Add /opt/local/lib/libusb.a
-Add /System/Bibliotek/Frameworks/AudioUnitFramework
+Add /opt/local/lib/portaudio.a
+Add /System/Bibliotek/Frameworks/CoreAudio.framework
+Add /System/Bibliotek/Frameworks/AudioUnit.framework
+Add /System/Bibliotek/Frameworks/AudioToolbox.framework
+Add /System/Bibliotek/Frameworks/CoreServices.framework
 
 3. Bygging og eksekvering
 make
-sudo ./SDRham_qt
+sudo ./SDRhamTest
 (må bruke sudo på linux, pga. noen rettigheter jeg ikke har funnet ut av)
 evt med en annen style
-sudo ./SDRham_qt -style windows
-(se http://doc.trolltech.com/4.3/qapplication.html)
-open SDRham_qt.app
+sudo ./SDRhamTest -style windows
+(se http://doc.trolltech.com/4.7/qapplication.html)
+open SDRhamTest.app
