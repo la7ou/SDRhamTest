@@ -20,8 +20,8 @@ using namespace std;
 
 #include "window.h"
 #include "ezload.h"
-#include "Loadsamples.h"
-#include "Processsamples.h"
+#include "LoadSamples.h"
+#include "ProcessSamples.h"
 #include "Readsamples.h"
  
 void SDRhamMainWindow::SetupSDRhamHW()

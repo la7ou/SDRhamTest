@@ -169,7 +169,8 @@ ProcessSamples:: ProcessSamples(QObject *parent, LoadSamples *lsam)
 		lSamptr = lsam;
 
 
-	OSStatus err = noErr;
+	//OSStatus err = noErr;
+	err = noErr;
 	err = paNoError;
 
 }
@@ -177,7 +178,8 @@ ProcessSamples:: ProcessSamples(QObject *parent, LoadSamples *lsam)
 void ProcessSamples:: ProcessSamplesSet()
 {	
 	
-OSStatus err = noErr;	
+	//OSStatus err = noErr;	
+	err = noErr;	
 
 	psamp_buffer=new int[2*MaxSamplesFrame]; //makr room for I- and Q-samples
 	pfilter_buffer=new int[2*MaxSamplesFrame]; //makr room for I- and Q-samples
