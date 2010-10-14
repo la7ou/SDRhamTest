@@ -218,7 +218,10 @@ if_gain=0;
       for(frames=0,j=0; frames < lSamptr->frame_count; frames++,j=j+PacketSize)
       {
 
-       pDSP001->B2Lendian(&lSamptr->rx_buff[j],psamp_buffer,MaxSamplesFrame);
+       pDSP001->B2Lendian(&lSamptr->rx_buff[j],psamp_buffer,MaxSamplesFrame); // gjøres i LoadSamples?
+		  
+		for (unsigned int i=0; i<10;i++) printf ("lSamptr->rx_buff[%d] = %d\n\t", i, lSamptr->rx_buff[i]);
+		for (unsigned int i=0; i<10;i++) printf ("psamp_buffer[%d] = %d\n\t", i, psamp_buffer[i]);
 
         switch(lSamptr->mode)
         {

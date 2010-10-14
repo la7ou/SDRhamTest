@@ -32,7 +32,7 @@ class LoadSamples : public QDialog
 		LoadSamples();
  
 	private:
-		const char *filnavn;//temporarily
+		const char *filnavnSamples;//temporarily
 		unsigned int sample,file_index;//,*fir_coeff;
 		QFile file;
 	

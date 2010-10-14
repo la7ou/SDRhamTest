@@ -8,6 +8,9 @@
 #include  "dsp001.h"
 #include <arpa/inet.h>  // ntohs()
 
+#include <stdio.h>
+//#include <stdlib.h>
+
 //The following constants are for DSP functiona
 #define FIR_FILTER_SIZE 1024
 #define SAMPLE_SIZE     6
@@ -75,9 +78,50 @@ DSP001::~DSP001()
 void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
 {
 #ifndef ASM
-	for (unsigned int i=0;i<size;i++)
-	{
-		dest_ptr[i] = ntohs(src_ptr[i]); // converted from network () to host byte order.
+	int src_index =0, dest_index = 0;
+	if (size > 0){
+		for (unsigned int i=0;i<size;i++)
+		{
+			// converted from network () to host byte order.
+			// and shifted 24 bits to lsb
+
+			dest_ptr[dest_index] = src_ptr[src_index+5];// I sample
+			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+4];
+			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+3];
+			
+			dest_ptr[dest_index+1] = src_ptr[src_index];// I sample
+			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+2];
+			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+1];
+			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index];
+	
+			dest_index = dest_index + 2;
+			src_index = src_index+SAMPLE_SIZE;
+
+			/*
+			dest_ptr[dest_index+7] = src_ptr[src_index];  // I sample
+			dest_ptr[dest_index+6] = src_ptr[src_index+1];
+			dest_ptr[dest_index+5] = src_ptr[src_index+2];
+			dest_ptr[dest_index+4] = 0;
+			dest_ptr[dest_index+3] = src_ptr[src_index+3];  // Q sample
+			dest_ptr[dest_index+2] = src_ptr[src_index+4];
+			dest_ptr[dest_index+1] = src_ptr[src_index+5];
+			dest_ptr[dest_index] = 0;
+			dest_index = dest_index + 8;
+			src_index = src_index+SAMPLE_SIZE;
+			*/
+			/*
+			dest_ptr[dest_index] = (ntohs(src_ptr[src_index])>> 8);  // I sample
+			printf ("I: src_ptr[%d] = %d, ", src_index, src_ptr[src_index]);
+			printf ("I: dest_ptr[%d] = %d\n\t", dest_index, dest_ptr[dest_index]);
+			dest_index = dest_index + 4;
+			src_index = src_index+SAMPLE_SIZE/2;
+			dest_ptr[dest_index] = (ntohs(src_ptr[src_index])>> 8);  // Q sample
+			printf ("Q: src_ptr[%d] = %d, ", src_index, src_ptr[src_index]);
+			printf ("Q: dest_ptr[%d] = %d\n\t", dest_index, dest_ptr[dest_index]);
+			dest_index = dest_index + 4;
+			src_index = src_index+SAMPLE_SIZE/2;
+			*/
+		}
 	}
 #else
   asm_b
@@ -460,6 +504,19 @@ void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, 
 	
 #ifndef ASM
     // C kode her 
+
+	if (size != 0){
+		for (unsigned int i = 0; i<size; i++) {
+			dest_ptr[i] = src_ptr[i] * amplitude;
+			if (dest_ptr[i] > AUDIOMAXIMUM) {
+				dest_ptr[i] = AUDIOMAXIMUM; //saturate to max positiv value
+			} else if (dest_ptr[i] < -AUDIOMAXIMUM) {
+				dest_ptr[i] = -AUDIOMAXIMUM; //saturate to max negativ value
+			}
+		}
+
+	}
+
 #else
   asm_b
     x1(MOV       ECX,size)
