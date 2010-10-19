@@ -57,6 +57,7 @@
 //extern char audio_scratch[MAX_SAMPLES];
 //extern unsigned int num_of_samples;
 
+
 /* This routine will be called by the PortAudio engine when audio is needed.
  ** It may be called at interrupt level on some machines so don't do anything
  ** that could mess up the system like calling malloc() or free().
@@ -68,29 +69,39 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 						void *userData )
 {
     paTestData *data = (paTestData*)userData;
-    SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
-    SAMPLE *wptr = (SAMPLE*)outputBuffer;
-    unsigned int i;
-    int finished;
-    unsigned int framesLeft = data->maxFrameIndex - data->frameIndex;
+    //SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
+    float *wptr = (float*)outputBuffer;//(SAMPLE*)outputBuffer;
+    // unsigned int framesLeft = data->maxFrameIndex - data->frameIndex;
 	
     (void) inputBuffer; /* Prevent unused variable warnings. */
     (void) timeInfo;
     (void) statusFlags;
-    (void) userData;
+ //   (void) userData;
 	
+	
+	for(unsigned int i=0; i<framesPerBuffer; i++ )
+    {
+        *wptr++ = data->sine[data->left_phase];  //*rptr++; // left
+        *wptr++ = data->sine[data->right_phase];  //*rptr++; // right 
+        data->left_phase += 10;
+        if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
+        data->right_phase += 1; /* higher pitch so we can distinguish left and right. */
+        if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
+    }
+	return paContinue;
+/*	
     if( framesLeft < framesPerBuffer )
     {
-        /* final buffer... */
+        // final buffer...
         for( i=0; i<framesLeft; i++ )
         {
-            *wptr++ = *rptr++;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
+            *wptr++ = *rptr++;  // left 
+            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  // right 
         }
         for( ; i<framesPerBuffer; i++ )
         {
-            *wptr++ = 0;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = 0;  /* right */
+            *wptr++ = 0;  // left 
+            if( NUM_CHANNELS == 2 ) *wptr++ = 0;  // right 
         }
         data->frameIndex += framesLeft;
         finished = paComplete;
@@ -99,13 +110,15 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
     {
         for( i=0; i<framesPerBuffer; i++ )
         {
-            *wptr++ = *rptr++;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
+            *wptr++ = *rptr++;  // left 
+            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  // right 
         }
         data->frameIndex += framesPerBuffer;
         finished = paContinue;
     }
+
     return finished;
+ 	*/
 }
 
   void ProcessSamples::run()
@@ -304,7 +317,15 @@ if_gain=0;
 	printf ("decim = %d\n", decim);
 
   
-	  /* Playback recorded data.  -------------------------------------------- */
+	  /* Playback recorded data.  -------------------------------------------- */	  
+	
+	  
+	  /* initialise sinusoidal wavetable */
+	  for(int i=0; i<TABLE_SIZE; i++ )
+	  {
+		  data.sine[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
+	  }
+	  data.left_phase = data.right_phase = 0;
 	  data.frameIndex = 0;
 	  
 	  err = Pa_Initialize();
@@ -316,7 +337,7 @@ if_gain=0;
 		  goto done;
 	  }
 	  outputParameters.channelCount = 2;                     /* stereo output */
-	  outputParameters.sampleFormat =  PA_SAMPLE_TYPE;
+	  outputParameters.sampleFormat =  paFloat32;//PA_SAMPLE_TYPE;
 	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
 	  outputParameters.hostApiSpecificStreamInfo = NULL;
 	  
@@ -334,6 +355,7 @@ if_gain=0;
 	  
 	  if( stream )
 	  {
+		  
 		  err = Pa_StartStream( stream );
 		  if( err != paNoError ) goto done;
 		  
@@ -341,6 +363,9 @@ if_gain=0;
 		  
 		  while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) Pa_Sleep(100);
 		  if( err < 0 ) goto done;
+		  
+		  err = Pa_StopStream( stream );
+		  if( err != paNoError ) goto done;
 		  
 		  err = Pa_CloseStream( stream );
 		  if( err != paNoError ) goto done;

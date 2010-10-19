@@ -54,6 +54,8 @@
 #define M_PI  (3.14159265)
 #endif
 
+#define TABLE_SIZE   (1024)
+
 /* Select sample format. */
 #if 0
 #define PA_SAMPLE_TYPE  paFloat32
@@ -80,16 +82,19 @@ typedef unsigned char SAMPLE;
 class ProcessSamples : public QThread
  {	Q_OBJECT
 	private:
-	 
+ 
 	 typedef struct
 	 {
-		 int          frameIndex;  /* Index into sample array. */
-		 int          maxFrameIndex;
-		 		 //SAMPLE      *recordedSamples;
+		 float sine[TABLE_SIZE];
+		 int left_phase;
+		 int right_phase;
+		 int frameIndex;  // Index into sample array. 
+		 int maxFrameIndex;
+		 //SAMPLE      *recordedSamples;
 		 short      *recordedSamples;
 	 }
 	 paTestData;
-	 
+ 
 	 // portaudio
 	 PaStreamParameters	 outputParameters;
 	 PaStream*           stream;
