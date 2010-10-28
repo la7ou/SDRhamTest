@@ -85,6 +85,7 @@ public slots:
 	void Clear();
 	void SourceBox();
 	void SaveSamples();
+		void setAutIFgain();
 		void setMode(int);//modeType);
 		void setAmMode();
 		void setFMMode();

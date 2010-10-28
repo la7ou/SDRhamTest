@@ -9,7 +9,8 @@
 #include <arpa/inet.h>  // ntohs()
 
 #include <stdio.h>
-//#include <stdlib.h>
+#include <stdlib.h>  //abs
+#include <math.h>  //num
 
 //The following constants are for DSP functiona
 #define FIR_FILTER_SIZE 1024
@@ -85,17 +86,18 @@ void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
 			// converted from network () to host byte order.
 			// and shifted 24 bits to lsb
 
-			dest_ptr[dest_index] = src_ptr[src_index+5];// I sample
-			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+4];
-			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+3];
+			dest_ptr[dest_index] = 0;
+			dest_ptr[dest_index] = src_ptr[src_index+2];// I sample
+			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | (src_ptr[src_index+1]);
+			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | (src_ptr[src_index]);
 			
-			dest_ptr[dest_index+1] = src_ptr[src_index];// I sample
-			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+2];
-			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index+1];
-			dest_ptr[dest_index+1] = (dest_ptr[dest_index] << 8 ) | src_ptr[src_index];
+			dest_ptr[dest_index+1] = 0;
+			dest_ptr[dest_index+1] = src_ptr[src_index+5];// Q sample
+			dest_ptr[dest_index+1] = (dest_ptr[dest_index+1] << 8 ) | (src_ptr[src_index+4]);
+			dest_ptr[dest_index+1] = (dest_ptr[dest_index+1] << 8 ) | (src_ptr[src_index+3]);
 	
 			dest_index = dest_index + 2;
-			src_index = src_index+SAMPLE_SIZE;
+			src_index = src_index+SAMPLE_SIZE; // 6
 
 			/*
 			dest_ptr[dest_index+7] = src_ptr[src_index];  // I sample
@@ -179,7 +181,7 @@ void  DSP001::SetFilterSize(unsigned int filter_size)
 
 //---------------------------------------------------------------------------
 
-void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
+void DSP001::GPRConvolute(int *src_ptr,float *dest_ptr,unsigned int size)
 {
   int i_accum[2],q_accum[2];
   int *end_of_buffer=&psig_buf[(size_filter<<1)-2];
@@ -268,7 +270,7 @@ void DSP001::GPRConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
 
 //---------------------------------------------------------------------------
 
-void DSP001::MMXConvolute(int *src_ptr,int *dest_ptr,unsigned int size)
+void DSP001::MMXConvolute(float *src_ptr,float *dest_ptr,unsigned int size)
 {
   int dummy[]={0,0};
   unsigned int mask[]={0x0000ffff,0x0000ffff};
@@ -446,7 +448,7 @@ void DSP001::SSEdemodSSB(float *pscr,float *pdest,unsigned int size,unsigned int
 
 //---------------------------------------------------------------------------
 
-void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned int mode)
+void DSP001::MMXdemodSSB(float *src_ptr,int *dest_ptr,unsigned int size,unsigned int mode)
 {
   int i_sample[2],q_sample[2];
 	
@@ -493,8 +495,9 @@ void DSP001::MMXdemodSSB(int *src_ptr,int *dest_ptr,unsigned int size,unsigned i
 }
 
 //---------------------------------------------------------------------------
+void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, unsigned int decim)
 
-void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, unsigned int if_gain, unsigned int decim)
+//void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, unsigned int if_gain, unsigned int decim)
 {
   unsigned int byteoffset;
   float amplitude;
@@ -507,12 +510,13 @@ void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, 
 
 	if (size != 0){
 		for (unsigned int i = 0; i<size; i++) {
-			dest_ptr[i] = src_ptr[i] * amplitude;
-			if (dest_ptr[i] > AUDIOMAXIMUM) {
+			dest_ptr[i] = src_ptr[i] % SAMPMAXIMUM;
+			if (dest_ptr[i] > (double)AUDIOMAXIMUM) {
 				dest_ptr[i] = AUDIOMAXIMUM; //saturate to max positiv value
-			} else if (dest_ptr[i] < -AUDIOMAXIMUM) {
+			} else if (dest_ptr[i] < (double)-AUDIOMAXIMUM) {
 				dest_ptr[i] = -AUDIOMAXIMUM; //saturate to max negativ value
 			}
+		
 		}
 
 	}

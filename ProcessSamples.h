@@ -85,10 +85,12 @@ class ProcessSamples : public QThread
  
 	 typedef struct
 	 {
-		 float sine[TABLE_SIZE];
+		 //short sine[TABLE_SIZE];//float sine[TABLE_SIZE];
+		 
+		 //short *sine;
 		 int left_phase;
 		 int right_phase;
-		 int frameIndex;  // Index into sample array. 
+		 unsigned int frameIndex;  // Index into sample array. 
 		 int maxFrameIndex;
 		 //SAMPLE      *recordedSamples;
 		 short      *recordedSamples;
@@ -104,12 +106,15 @@ class ProcessSamples : public QThread
 	// fra main.cpp ProcessSamples :
 	unsigned int frames,j,n,index,disp_index,audio_index,fill_buff;
 	unsigned int wave_result,waveCurrentBlock;
-
-	int sample,*psamp_buffer,*pfilter_buffer,*pdemod_buffer;
+	 double in_sample_rate,decim_rate,fracpart;
+	 
+	 int sample,*psamp_buffer, *pdemod_buffer;//,*pfilter_buffer,*pdemod_buffer;
+	 float *pfl_buffer, *pfilter_buffer, *pampl_buffer;
 	short *paudio_scratch;
 	char audio_scratch[MAX_SAMPLES];
 	unsigned int  num_of_samples;
 	int nChannels;
+	// audio_buffer *paudio_buffer;
 
 
 // Alsa player?
@@ -120,7 +125,8 @@ class ProcessSamples : public QThread
 	//static i Halvors kode gir linkeproblemer i Qt koden:
 	unsigned int samplesource, wout_sample_rate;
 	unsigned int decim, filedelay;
-	int if_gain;
+	//	
+	//	double decim_rate,fracpart;
 	
 	// fra Halvors main.cpp
 	unsigned int PacketSize, MaxSamplesFrame;
@@ -143,10 +149,11 @@ class ProcessSamples : public QThread
 		DSP002 *pDSP002;
 		DSPPSK31 *pDSPpsk31;
 		
-		enum modeType {am,fm,usb,lsb,psk31 }; // ProcessSamples
+		//enum modeType {am,fm,usb,lsb,psk31 }; // ProcessSamples
 		unsigned int run_flag;
-			int *pdisplay_buffer;
-//				int mode;//modeType mode;
+		int *pdisplay_buffer;
+//		int mode;//modeType mode;
+		int if_gain;
 		
 	public slots:
 		void ProcessSamplesSet();

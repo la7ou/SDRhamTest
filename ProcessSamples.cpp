@@ -71,25 +71,55 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
     paTestData *data = (paTestData*)userData;
     //SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
     float *wptr = (float*)outputBuffer;//(SAMPLE*)outputBuffer;
-    // unsigned int framesLeft = data->maxFrameIndex - data->frameIndex;
+	unsigned int framesLeft;// = data->maxFrameIndex - data->frameIndex;
 	
     (void) inputBuffer; /* Prevent unused variable warnings. */
     (void) timeInfo;
     (void) statusFlags;
+	unsigned int finished = paContinue;//0;
  //   (void) userData;
+	unsigned int i;
 	
 	
-	for(unsigned int i=0; i<framesPerBuffer; i++ )
+	if( data->frameIndex < framesPerBuffer )
     {
-        *wptr++ = data->sine[data->left_phase];  //*rptr++; // left
-        *wptr++ = data->sine[data->right_phase];  //*rptr++; // right 
-        data->left_phase += 10;
-        if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
-        data->right_phase += 1; /* higher pitch so we can distinguish left and right. */
-        if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
+        framesLeft = data->frameIndex;
+        data->frameIndex = 0;
+        finished = paComplete;//1;
     }
-	return paContinue;
-/*	
+    else
+    {
+        framesLeft = framesPerBuffer;
+        data->frameIndex -= framesPerBuffer;
+    }
+	
+	for(i=0; i<framesLeft; i++ )
+	//	for(unsigned int i=0; i<framesPerBuffer; i++ )
+    {
+
+		/*
+		*wptr++ = data->sine[data->left_phase];  //*rptr++; // left
+		*wptr++ = data->sine[data->right_phase];  //*rptr++; // right 
+		*/
+		*wptr++ = data->recordedSamples[data->left_phase];  //*rptr++; // left
+		*wptr++ = data->recordedSamples[data->right_phase];  //*rptr++; // right 
+		
+			
+		data->left_phase += 10;
+		if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
+		data->right_phase += 1; // higher pitch so we can distinguish left and right
+		if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
+    }
+	/* zero remainder of final buffer */
+    for( ; i<(unsigned int)framesPerBuffer; i++ )
+    {
+        *wptr++ = 0; // left TEST_UNSIGNED :(unsigned char) 0x80;
+        *wptr++ = 0; // right (unsigned char) 0x80;
+    }
+	return finished;//paComplete;//paContinue;
+	
+	
+/*
     if( framesLeft < framesPerBuffer )
     {
         // final buffer...
@@ -118,13 +148,13 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
     }
 
     return finished;
- 	*/
+*/
 }
 
   void ProcessSamples::run()
  {
  
-	double in_sample_rate,decim_rate,fracpart;
+//	double in_sample_rate,decim_rate,fracpart;
 	run_flag = true;
 	std::cout << " run_flag  = " <<  run_flag << std::endl;
 
@@ -139,19 +169,24 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 
     case 1:   //File is source
 */			
-      PacketSize=MAX_SAMPLES_FRAME*SAMPLE_SIZE;
+      PacketSize=MAX_SAMPLES_FRAME*SAMPLE_SIZE; 
       MaxSamplesFrame=MAX_SAMPLES_FRAME;
-      in_sample_rate=8000;//FILE_AUDIO_RATE;//FILE_AUDIO_RATE fra (double)SourceForm->GetFileSampleRate();
+      in_sample_rate=FILE_AUDIO_RATE;//FILE_AUDIO_RATE fra (double)SourceForm->GetFileSampleRate();
+	 
+	 std::cout << "ProcessSamples::Samples Loaded (lSamptr->sample_count) = " << lSamptr->sample_count << std::endl;
+	 std::cout << "ProcessSamples::Frames (lSamptr->frame_count=sample_count/MAX_SAMPLES_FRAME) = " << lSamptr->frame_count << std::endl;
+	 
+	 printf("lSamptr->frame_count: %d\n",lSamptr->frame_count);
       filedelay=(lSamptr->frame_count*MAX_SAMPLES_FRAME*1000)/in_sample_rate;
-	  	printf("File delay: %d",(unsigned int)filedelay);
+	  	printf("File delay: %d\n",(unsigned int)filedelay);
 /*
 		break;
   }
 */
 
 	 pdisplay_buffer=new int[MAX_SAMPLES]; //display buffer
-
-	wout_sample_rate=8000;//44100.0;	// AudioProp->GetAudioSampleRate();
+	 if_gain=1;
+	wout_sample_rate=44100.0;	// AudioProp->GetAudioSampleRate();
 	fracpart=modf((in_sample_rate/(double)wout_sample_rate),&decim_rate);
 	//decim_rate = 5; //test
 	decim=(unsigned int)decim_rate;
@@ -193,21 +228,24 @@ void ProcessSamples:: ProcessSamplesSet()
 	
 	//OSStatus err = noErr;	
 	err = noErr;	
-
-	psamp_buffer=new int[2*MaxSamplesFrame]; //makr room for I- and Q-samples
-	pfilter_buffer=new int[2*MaxSamplesFrame]; //makr room for I- and Q-samples
-	pdemod_buffer=new int[MaxSamplesFrame]; //demodlated samples
+	//data.sine = new short[TABLE_SIZE];
+	psamp_buffer=new int[2*MaxSamplesFrame]; //make room for I- and Q-samples
+	pfilter_buffer=new float[2*MaxSamplesFrame]; //make room for I- and Q-samples
+	pdemod_buffer=new int[MaxSamplesFrame]; //demodulated samples
 	//paudio_buffer=new audio_buffer; //audio buffer for windows
 	paudio_scratch=new short[MAX_SAMPLES]; //audio scratch buffer
+	pfl_buffer=new float[2*MaxSamplesFrame];
+	pampl_buffer=new float[MaxSamplesFrame];
+	//pFFT_buffer=new float[2*rtFFTsize];
+	//pFFT_ptr=pFFT_buffer; //Initialize FFT buffer pointer to start of buffer
+	//pFFT_end=&pFFT_buffer[2*rtFFTsize];
 
-  waveFreeBlockCount=NUM_OF_BUFFERS;
-  waveCurrentBlock=0;
-  
- nChannels=1;
+	waveFreeBlockCount=NUM_OF_BUFFERS;
+	waveCurrentBlock=0;
  
-if_gain=0;
+	//if_gain=1; //start value of manual if gain
 	
-		printf (" mode = %d\n", lSamptr->mode);
+	printf (" mode = %d\n", lSamptr->mode);
 
 	
 	printf("\nProcess Parameters : \n\t");
@@ -219,7 +257,7 @@ if_gain=0;
 	printf ("decim = %i\n\t", decim);
 	printf (" filedelay (=(lSamptr->frame_count*MAX_SAMPLES_FRAME*1000)/in_sample_rate) =%d\n", filedelay);
 
-  num_of_samples=MaxSamplesFrame/decim;
+	num_of_samples=MaxSamplesFrame/decim;
 
   while(run_flag)
   {
@@ -231,50 +269,63 @@ if_gain=0;
       for(frames=0,j=0; frames < lSamptr->frame_count; frames++,j=j+PacketSize)
       {
 
-       pDSP001->B2Lendian(&lSamptr->rx_buff[j],psamp_buffer,MaxSamplesFrame); // gjøres i LoadSamples?
-		  
-		for (unsigned int i=0; i<10;i++) printf ("lSamptr->rx_buff[%d] = %d\n\t", i, lSamptr->rx_buff[i]);
-		for (unsigned int i=0; i<10;i++) printf ("psamp_buffer[%d] = %d\n\t", i, psamp_buffer[i]);
+       pDSP001->B2Lendian(&lSamptr->rx_buff[j],psamp_buffer,MaxSamplesFrame);
+		  for(int i=0; i<10; i++) printf("psamp_buffer[%d]%d\n", i,psamp_buffer[i]);
+		//for (unsigned int i=0; i<10;i++) printf ("lSamptr->rx_buff[%d] = %d\n\t", i, lSamptr->rx_buff[i]);
+		//for (unsigned int i=0; i<10;i++) printf ("psamp_buffer[%d] = %d\n\t", i, psamp_buffer[i]);
 
         switch(lSamptr->mode)
         {
           case 0: // AM
-            pDSP002->FPdemodAM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
-            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-            audio_index=audio_index+num_of_samples;
+            {pDSP002->FPdemodAM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
+			for(int i=0; i<10; i++) printf ("pdemod_buffer[%i] = %i\n\t",i, pdemod_buffer[i]);
+//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+//            audio_index=audio_index+num_of_samples;
+				}
             break;
 
           case 1: // FM
-            pDSP002->FPdemodFM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
+            {pDSP002->FPdemodFM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
             for(unsigned int m=0,k=0; m<MaxSamplesFrame; m=m+1,k=k+2)
               psamp_buffer[k]=pdemod_buffer[m];
             pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             for(unsigned int m=0,k=0; m<MaxSamplesFrame; m=m+1,k=k+2)
               pdemod_buffer[m]=pfilter_buffer[k];
-            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,-8,decim);
-            audio_index=audio_index+num_of_samples;
+//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,-8,decim);
+//            audio_index=audio_index+num_of_samples;
+				}
             break;
 
           case 2: //USB
-            pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
+            {pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,0);
-            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-            audio_index=audio_index+num_of_samples;
+//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+//            audio_index=audio_index+num_of_samples;
+				}
             break;
 
           case 3: //LSB
-            pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
+            {pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,1);
-            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-            audio_index=audio_index+num_of_samples;
+//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
+//            audio_index=audio_index+num_of_samples;
+				}
             break;
 
           case 4: //PSK31
+				qDebug() << "PSK31" << endl;
             break;
+		  default: //PSK31
+				qDebug() << "Illegal mode" << lSamptr->mode << endl;
         } //switch(mode)
+		  
+		  pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,decim);
+		  //pDSP001->SSEMakeAudioSample(pampl_buffer,&paudio_scratch[audio_index],num_of_samples,decim);
+		  audio_index=audio_index+num_of_samples;
+		  
 			//printf (" &paudio_scratch[%d] = %d,\n",audio_index, &paudio_scratch[audio_index]);
-				qDebug() << "&paudio_scratch["<< audio_index << "] = "<<  &paudio_scratch[audio_index] << endl;
-
+			//	qDebug() << "&paudio_scratch["<< audio_index << "] = "<<  &paudio_scratch[audio_index] << endl;
+		  for(int i=0; i<10; i++) printf ("paudio_scratch[%i] = %i\n\t",i, paudio_scratch[i]);
         for(index=0; index<MaxSamplesFrame; index++)
         {
           pdisplay_buffer[disp_index]=pdemod_buffer[index];
@@ -286,8 +337,22 @@ if_gain=0;
 
 //    } // end of //    if(WaitForSingleObject(hProcessEvent,1000)==WAIT_OBJECT_0)
 
+	  /* initialise sinusoidal wavetable */
+/*
+	  for(int i=0; i<TABLE_SIZE; i++ )
+	  {
+		  paudio_scratch[i] = (short) (60000.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
+		  //data.sine[i] = paudio_scratch[i];
+		  //data.sine[i] = (short) (127.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
+		  //data.sine[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
+		  printf ("paudio_scratch[%i] = %d\n\t",i, paudio_scratch[i]);
+	  }
+*/
+	  data.left_phase = data.right_phase = 0;
+	  data.frameIndex = NUM_SECONDS * SAMPLE_RATE; /* Play for a few seconds. */
 	  
 	  data.recordedSamples = paudio_scratch;
+	  //data.sine = (short)paudio_scratch;
 
     switch(waveFreeBlockCount)
     {
@@ -318,16 +383,6 @@ if_gain=0;
 
   
 	  /* Playback recorded data.  -------------------------------------------- */	  
-	
-	  
-	  /* initialise sinusoidal wavetable */
-	  for(int i=0; i<TABLE_SIZE; i++ )
-	  {
-		  data.sine[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
-	  }
-	  data.left_phase = data.right_phase = 0;
-	  data.frameIndex = 0;
-	  
 	  err = Pa_Initialize();
 	  if( err != paNoError ) goto done;
 	  
@@ -336,10 +391,12 @@ if_gain=0;
 		  fprintf(stderr,"Error: No default output device.\n");
 		  goto done;
 	  }
+	  
 	  outputParameters.channelCount = 2;                     /* stereo output */
-	  outputParameters.sampleFormat =  paFloat32;//PA_SAMPLE_TYPE;
+	  outputParameters.sampleFormat =  paInt16; //short //paFloat32;//PA_SAMPLE_TYPE;
 	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
 	  outputParameters.hostApiSpecificStreamInfo = NULL;
+	  
 	  
 	  printf("Begin playback.\n"); fflush(stdout);
 	  err = Pa_OpenStream(
@@ -353,25 +410,28 @@ if_gain=0;
 						  &data );
 	  if( err != paNoError ) goto done;
 	  
-	  if( stream )
-	  {
+//	  if( stream )
+//	  {
 		  
 		  err = Pa_StartStream( stream );
-		  if( err != paNoError ) goto done;
+		  if( err != paNoError ) goto error;
 		  
 		  printf("Waiting for playback to finish.\n"); fflush(stdout);
 		  
-		  while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) Pa_Sleep(100);
-		  if( err < 0 ) goto done;
+		  while( ( err = Pa_IsStreamActive( stream ) ) == 1 ) Pa_Sleep(10);
+		  if( err < 0 ) goto error;
 		  
 		  err = Pa_StopStream( stream );
-		  if( err != paNoError ) goto done;
+		  if( err != paNoError ) goto error;
 		  
 		  err = Pa_CloseStream( stream );
-		  if( err != paNoError ) goto done;
+		  if( err != paNoError ) goto error;
 		  
 		  printf("Done.\n"); fflush(stdout);
-	  }
+	//  }
+	  
+  error:
+	printf("Error %i\n", err);
 	  
   done:
 	  Pa_Terminate();

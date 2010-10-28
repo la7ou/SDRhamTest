@@ -37,7 +37,7 @@ int LoadSamples:: LoadSamplesFile()
 //    "This feature is partly implemented.");
 	
 //		static unsigned int frame_count;
-
+	unsigned char temp;
     int err = kSuccess;
     fileDialog = new QFileDialog(this);
     fileDialog->setFilter(tr( "Images (*.dat)"));
@@ -64,7 +64,6 @@ int LoadSamples:: LoadSamplesFile()
 
       sample_count=0;
       file_index=0;
-
 	     while (!file.atEnd())
 		  {
 
@@ -79,36 +78,47 @@ int LoadSamples:: LoadSamplesFile()
 				Q_sample = ba.right(n+1);	// extract Q sample part from line
 			}
 			//  printf ("I_sample = %s, Q_sample = %s\n\t", I_sample.data(), Q_sample.data());
-			  
+			
+			/*
+			 Samplene som leses fra filen som 32-bit integer  i Little Endian format 
+			 (Intel Pentium prosessor bruker Little Endian format). 
+			 Samplene fra AD6620 kommer som 24-bit i Big Endian format. 
+			 Skiftingen av bits konverterer 32-bits Little Endian format til 24-bit Big Endian format 
+			 slik at samplene i receivebufferet rx_buff,
+			 som er input til ProcessSample() funksjon, ser like ut enten de kommer fra AD6620 eller fra fil.
+			*/  
 			sample= atoi(I_sample); // I sample convert to integer	
 			//  printf ("int I_sample = %d (0x%x)\n\t", sample, sample);
-            // gjør om I sample til little endian :
-			rx_buff[file_index]=(unsigned char)(sample>>16);
-            file_index++;
-            rx_buff[file_index]=(unsigned char)(sample>>8);
-            file_index++;
-            rx_buff[file_index]=(unsigned char)sample;
-            file_index++;
+            // konverterer I sample til Big endian :
+			  rx_buff[file_index]=(unsigned char)sample;
+			  file_index++;
+			  rx_buff[file_index]=(unsigned char)(sample>>8);
+			  file_index++;
+			  rx_buff[file_index]= (unsigned char)(sample>>16);
+			  file_index++;
+
+
 			
 			sample= atoi(Q_sample); // convert Q_sample to integer
-			  		  printf ("int Q_sample = %d (0x%x)\n\t", sample, sample);
-            // gjør om Q sample til little endian :
-			rx_buff[file_index]=(unsigned char)(sample>>16);
-            file_index++;
-            rx_buff[file_index]=(unsigned char)(sample>>8);
-            file_index++;
-            rx_buff[file_index]=(unsigned char)sample;
-            file_index++;
+			//  printf ("int Q_sample = %d (0x%x)\n\t", sample, sample);
+            // Konverterer Q sample til Big endian :
+			  rx_buff[file_index]=(unsigned char)sample;
+			  file_index++;
+			  rx_buff[file_index]=(unsigned char)(sample>>8);
+			  file_index++;
+			  rx_buff[file_index]= (unsigned char)(sample>>16);
+			  file_index++;
 		
             //line_index=0;              //reset line pointer
             sample_count++;
 
       } // while (!file.atEnd())
 		frame_count=sample_count/MAX_SAMPLES_FRAME;
-		std::cout << "Samples Loaded (sample_count) = " << sample_count << std::endl;
-		std::cout << "Frames (sample_count/MAX_SAMPLES_FRAME) = " << frame_count << std::endl;
-		for (unsigned int i=0; i<10;i++) printf ("rx_buff[%d] = %d\n\t", i, rx_buff[i]);
-			std::cout << "Samples in rx_buff[0] = " << rx_buff[0] << std::endl;
+		std::cout << "LoadSamples::Samples Loaded (sample_count) = " << sample_count << std::endl;
+		std::cout << "LoadSamples::Frames (sample_count/MAX_SAMPLES_FRAME) = " << frame_count << std::endl;
+		printf ("rx_buff[i] = ");	
+		for (unsigned int i=0; i<20;i++) printf ("%x, ", rx_buff[i]);
+		//	std::cout << "Samples in rx_buff[0] = " << rx_buff[0] << std::endl;
 		//printf("Samples Loaded (sample_count) : %d \n",sample_count);
 		//printf("Frames (sample_count/MAX_SAMPLES_FRAME) : %d \n",frame_count);
 /*		char text[512];

@@ -100,6 +100,13 @@ void SDRhamMainWindow::RunClick()
 	qDebug() << "SDRhamMainWindow::SaveSamples() is not implemented";
  }
  
+
+void SDRhamMainWindow::setAutIFgain()//modeType inMode)
+{
+	procSam->if_gain=1;
+	printf (" mode = %d\n", procSam->if_gain);
+};
+
 void SDRhamMainWindow::setMode(int inMode)//modeType inMode)
 {
 	lSam->mode=inMode;
@@ -288,6 +295,9 @@ SDRhamMainWindow::SDRhamMainWindow()
      vbox->addWidget(gain,2);
 
      groupBoxFreq->setLayout(vbox);
+	 
+	 connect(radio1, SIGNAL(clicked()),this ,SLOT(setAutIFgain()));
+	 //connect(radio2, SIGNAL(clicked()),this ,SLOT(setManIFgain()));
 
      return groupBoxFreq;
  }

@@ -86,8 +86,7 @@ void DSP002::FPdemodFM(int *src_ptr,int *dest_ptr,unsigned int size)
 
 //----------------------------------------------------------------------
 
-void DSP002::FPdemodAM(int *src_ptr,int *dest_ptr,unsigned int size)
-{
+void DSP002::FPdemodAM(int *src_ptr,int *dest_ptr,unsigned int size){
   double  i_sample,q_sample,mid_value,temp_value;
 
   mid_value=0;
@@ -98,7 +97,7 @@ void DSP002::FPdemodAM(int *src_ptr,int *dest_ptr,unsigned int size)
     q_sample=(double)src_ptr[n+1];
     temp_value=sqrt(i_sample*i_sample+q_sample*q_sample);
     mid_value=mid_value+temp_value;
-    dest_ptr[i]=(int)(temp_value-dc_value);
+    dest_ptr[i]=(int)(temp_value-dc_value);//(int)(temp_value-dc_value);
   }
   dc_value=mid_value/(double)size;
 }
