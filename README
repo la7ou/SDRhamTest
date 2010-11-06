@@ -29,18 +29,23 @@ moc_* er filer generert automatisk av Qt
 
 
 1. Installere verktøy
-   Qt Open Source Edition (Windows/X11/Mac) lastes ned herfra :
+   * Qt Open Source Edition (Windows/X11/Mac) lastes ned herfra :
    - http://qt.nokia.com/downloads/
 
-   libusb finner du her:
-http://libusb.sourceforge.net/http://libusb-win32.sourceforge.net/
+   * libusb last ned fra :
+http://libusb.sourceforge.net/
 http://www.libusb.org/
 http://www.libusb.org/wiki/libusb-compat-0.1
+http://libusb-win32.sourceforge.net/
 
    Portaudio finner du her:
 http://www.portaudio.com/download.html
+./configure
+make 
+make install
 
-   På Ubuntu kan det gjøres enkelt det med Synaptic package manager, søk på libusb, portaudio og Qt4
+   På Ubuntu kan det gjøres enkelt det med Synaptic package manager.
+   Søk på libusb, portaudio og Qt4 or resten går av seg selv
 
    Git, scm
 	http://git-scm.com/
@@ -51,10 +56,16 @@ http://www.portaudio.com/download.html
 2. Gjøre klar prosjektet
 qmake -project
 qmake
+for OSX med Xcode : qmake -spec macx-xcode
+windowws med visual studio: qmake -tp vc hello.pro
 
 Legg til -lusb og -lportaudio på slutten av LIBS i den genererte Makefile
 LIBS          = ..... -lusb -lportaudio
-I xcode,Existing Framework :
+windows : 
+LIBS          = ..... -L..\portaudio\lib\.libs -L..\libusb-win32-bin-1.2.2.0\lib\gcc -lusb -lportaudio
+INCPATH = … -I../libusb-win32-bin-1.2.2.0/include -I../portaudio/include
+
+For OSX med xcode,Existing Framework :
 Add /opt/local/lib/libusb.a
 Add /opt/local/lib/portaudio.a
 Add /System/Bibliotek/Frameworks/CoreAudio.framework

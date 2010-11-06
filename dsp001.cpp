@@ -6,7 +6,7 @@
 //#pragma hdrstop
 
 #include  "dsp001.h"
-#include <arpa/inet.h>  // ntohs()
+//#include <arpa/inet.h>  // ntohs()
 
 #include <stdio.h>
 #include <stdlib.h>  //abs
@@ -510,7 +510,7 @@ void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, 
 
 	if (size != 0){
 		for (unsigned int i = 0; i<size; i++) {
-			dest_ptr[i] = src_ptr[i] % SAMPMAXIMUM;
+			dest_ptr[i] = src_ptr[i] % SAMPMAXIMUM; // scaling
 			if (dest_ptr[i] > (double)AUDIOMAXIMUM) {
 				dest_ptr[i] = AUDIOMAXIMUM; //saturate to max positiv value
 			} else if (dest_ptr[i] < (double)-AUDIOMAXIMUM) {

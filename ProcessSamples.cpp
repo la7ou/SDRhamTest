@@ -33,26 +33,18 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <iostream> // cout
-
-//#include <QSound>
-//#include <alsa/asoundlib.h>
-
 #include  <math.h>
 
 #include <dsp001.h>  // AM, SSB ... fra halvor
 #include <dsp002.h>  // FM, ...
 #include <dsppsk31.h>  // PSK, ...
 
-//#include <CoreServices/CoreServices.h>
-//#include <AudioUnit/AudioUnit.h> // AudioUnit
-//#include <AudioToolbox/AudioToolbox.h>
-//#include <CoreAudio/CoreAudioTypes.h>  // AudioStreamBasicDescription
-
 #include "portaudio.h"
 
 #define _OSX_AU_DEBUG_ 0
+
+#define SINE  0
 
 //extern char audio_scratch[MAX_SAMPLES];
 //extern unsigned int num_of_samples;
@@ -96,18 +88,12 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 	for(i=0; i<framesLeft; i++ )
 	//	for(unsigned int i=0; i<framesPerBuffer; i++ )
     {
-
-		/*
-		*wptr++ = data->sine[data->left_phase];  //*rptr++; // left
-		*wptr++ = data->sine[data->right_phase];  //*rptr++; // right 
-		*/
-		*wptr++ = data->recordedSamples[data->left_phase];  //*rptr++; // left
-		*wptr++ = data->recordedSamples[data->right_phase];  //*rptr++; // right 
-		
+		*wptr++ = data->recordedSamples[data->left_phase];
+		*wptr++ = data->recordedSamples[data->right_phase];
 			
-		data->left_phase += 10;
+		data->left_phase += 5;
 		if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
-		data->right_phase += 1; // higher pitch so we can distinguish left and right
+		data->right_phase += 8; // higher pitch so we can distinguish left and right
 		if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
     }
 	/* zero remainder of final buffer */
@@ -117,38 +103,7 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
         *wptr++ = 0; // right (unsigned char) 0x80;
     }
 	return finished;//paComplete;//paContinue;
-	
-	
-/*
-    if( framesLeft < framesPerBuffer )
-    {
-        // final buffer...
-        for( i=0; i<framesLeft; i++ )
-        {
-            *wptr++ = *rptr++;  // left 
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  // right 
-        }
-        for( ; i<framesPerBuffer; i++ )
-        {
-            *wptr++ = 0;  // left 
-            if( NUM_CHANNELS == 2 ) *wptr++ = 0;  // right 
-        }
-        data->frameIndex += framesLeft;
-        finished = paComplete;
-    }
-    else
-    {
-        for( i=0; i<framesPerBuffer; i++ )
-        {
-            *wptr++ = *rptr++;  // left 
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  // right 
-        }
-        data->frameIndex += framesPerBuffer;
-        finished = paContinue;
-    }
 
-    return finished;
-*/
 }
 
   void ProcessSamples::run()
@@ -228,7 +183,6 @@ void ProcessSamples:: ProcessSamplesSet()
 	
 	//OSStatus err = noErr;	
 	err = noErr;	
-	//data.sine = new short[TABLE_SIZE];
 	psamp_buffer=new int[2*MaxSamplesFrame]; //make room for I- and Q-samples
 	pfilter_buffer=new float[2*MaxSamplesFrame]; //make room for I- and Q-samples
 	pdemod_buffer=new int[MaxSamplesFrame]; //demodulated samples
@@ -271,16 +225,11 @@ void ProcessSamples:: ProcessSamplesSet()
 
        pDSP001->B2Lendian(&lSamptr->rx_buff[j],psamp_buffer,MaxSamplesFrame);
 		  for(int i=0; i<10; i++) printf("psamp_buffer[%d]%d\n", i,psamp_buffer[i]);
-		//for (unsigned int i=0; i<10;i++) printf ("lSamptr->rx_buff[%d] = %d\n\t", i, lSamptr->rx_buff[i]);
-		//for (unsigned int i=0; i<10;i++) printf ("psamp_buffer[%d] = %d\n\t", i, psamp_buffer[i]);
-
         switch(lSamptr->mode)
         {
           case 0: // AM
             {pDSP002->FPdemodAM(psamp_buffer,pdemod_buffer,MaxSamplesFrame);
 			for(int i=0; i<10; i++) printf ("pdemod_buffer[%i] = %i\n\t",i, pdemod_buffer[i]);
-//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-//            audio_index=audio_index+num_of_samples;
 				}
             break;
 
@@ -291,24 +240,18 @@ void ProcessSamples:: ProcessSamplesSet()
             pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             for(unsigned int m=0,k=0; m<MaxSamplesFrame; m=m+1,k=k+2)
               pdemod_buffer[m]=pfilter_buffer[k];
-//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,-8,decim);
-//            audio_index=audio_index+num_of_samples;
 				}
             break;
 
           case 2: //USB
             {pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,0);
-//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-//            audio_index=audio_index+num_of_samples;
 				}
             break;
 
           case 3: //LSB
             {pDSP001->GPRConvolute(psamp_buffer,pfilter_buffer,MaxSamplesFrame);
             pDSP001->MMXdemodSSB(pfilter_buffer,pdemod_buffer,MaxSamplesFrame,1);
-//            pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,if_gain,decim);
-//            audio_index=audio_index+num_of_samples;
 				}
             break;
 
@@ -320,11 +263,8 @@ void ProcessSamples:: ProcessSamplesSet()
         } //switch(mode)
 		  
 		  pDSP001->SSEMakeAudioSample(pdemod_buffer,&paudio_scratch[audio_index],num_of_samples,decim);
-		  //pDSP001->SSEMakeAudioSample(pampl_buffer,&paudio_scratch[audio_index],num_of_samples,decim);
 		  audio_index=audio_index+num_of_samples;
 		  
-			//printf (" &paudio_scratch[%d] = %d,\n",audio_index, &paudio_scratch[audio_index]);
-			//	qDebug() << "&paudio_scratch["<< audio_index << "] = "<<  &paudio_scratch[audio_index] << endl;
 		  for(int i=0; i<10; i++) printf ("paudio_scratch[%i] = %i\n\t",i, paudio_scratch[i]);
         for(index=0; index<MaxSamplesFrame; index++)
         {
@@ -338,16 +278,14 @@ void ProcessSamples:: ProcessSamplesSet()
 //    } // end of //    if(WaitForSingleObject(hProcessEvent,1000)==WAIT_OBJECT_0)
 
 	  /* initialise sinusoidal wavetable */
-/*
+
+	  
 	  for(int i=0; i<TABLE_SIZE; i++ )
 	  {
-		  paudio_scratch[i] = (short) (60000.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
-		  //data.sine[i] = paudio_scratch[i];
-		  //data.sine[i] = (short) (127.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
-		  //data.sine[i] = (float) sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. );
+		  paudio_scratch[i] = (short) (600.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
 		  printf ("paudio_scratch[%i] = %d\n\t",i, paudio_scratch[i]);
 	  }
-*/
+
 	  data.left_phase = data.right_phase = 0;
 	  data.frameIndex = NUM_SECONDS * SAMPLE_RATE; /* Play for a few seconds. */
 	  

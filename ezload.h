@@ -41,7 +41,7 @@ int hexRead(HEX_RECORD *record, FILE *file);
 
  private:
     int uploadFirmware(struct usb_dev_handle *dev);//, const char *filename);
-
+	 
     void EZConfig(int vid, int pid);
     int EZControl(struct usb_dev_handle *dev, int address, int length, char data[]);
     int EZClose(struct usb_dev_handle *dev);

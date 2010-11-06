@@ -8,14 +8,8 @@
  */
 //#include <QObject> 
 #include <QMessageBox>
-//#include <QDialog>
-//#include <QFileDialog>
-//#include <QFile>
-//#include <QString> // Istedet for Ansistring
-//#include "ezload.h"
 #include "Readsamples.h"
-//#include <stdio.h>
-//#include <stdlib.h>
+
 
 ReadSamples:: ReadSamples(QObject *parent)
 : QThread(parent)

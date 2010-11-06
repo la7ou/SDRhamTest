@@ -80,7 +80,7 @@ int hexRead(HEX_RECORD *record, FILE *file)
 
 FileW::FileW()
  {
-    filnavn ="/home/steinee/Dokumenter/ezloadSDR/blink_leds.ihx";
+    //filnavn ="/home/steinee/Dokumenter/ezloadSDR/blink_leds.ihx";
     usbVendor =  0x04b4;
     usbProduct = 0x8613;
     dev_handle = NULL;
@@ -97,34 +97,34 @@ void FileW::EZConfig(int vid, int pid)
 //    struct usb_dev_handle *dev_handle = NULL;
 
     int err;
-    cout << "EZConfig 1 :filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 1 :filename selected is :"  << filnavn << endl;
     /* USB Set up */
     usb_init();
-    cout << "EZConfig 2:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 2:filename selected is :"  << filnavn << endl;
     err = usb_find_busses();
     if (err == 0) {
         fprintf(stderr, "EZConfig: no USB busses found\n");
         exit(1);
         //return NULL;
     }
-    cout << "EZConfig 3:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 3:filename selected is :"  << filnavn << endl;
     err = usb_find_devices();
     if (err == 0) {
         fprintf(stderr, "EZConfig: no USB devices found\n");
         exit(1);
         //return NULL;
     }
-    cout << "EZConfig 3:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 3:filename selected is :"  << filnavn << endl;
     /* I don't like goto either, but it's easier this way */
-    busses = usb_busses;
+    busses = usb_get_busses();// due to windows //usb_busses;
     for (bus = busses; bus; bus = bus->next) {
         for (dev = bus->devices; dev; dev = dev->next) {
             if ((dev->descriptor.idVendor == vid) && (dev->descriptor.idProduct == pid))
                 goto found;
         }
     }
-    cout << "EZConfig 4:filename selected is :"  << filnavn << endl;
-    fprintf(stderr, "EZConfig: no matching VID/PID found\n");
+    //cout << "EZConfig 4:filename selected is :"  << filnavn << endl;
+    //fprintf(stderr, "EZConfig: no matching VID/PID found\n");
     exit(1);
     //return NULL;
 //    cout << "*EZConfig/return NULL; :filename selected is :"  << filnavn << endl;
@@ -135,7 +135,7 @@ found:
         exit(1);
         //return NULL;
     }
-    cout << "EZConfig 4:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 4:filename selected is :"  << filnavn << endl;
     /* set configuration */
     err = usb_set_configuration(dev_handle, dev->config->bConfigurationValue);
     if (err != 0) {
@@ -143,7 +143,7 @@ found:
         exit(1);
         //return NULL;
     }
-    cout << "EZConfig 5:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 5:filename selected is :"  << filnavn << endl;
     /* claim it */
     err = usb_claim_interface(dev_handle, dev->config->interface->altsetting->bInterfaceNumber);
     if (err != 0) {
@@ -151,7 +151,7 @@ found:
         exit(1);
         //return NULL;
     }
-    cout << "EZConfig 6:filename selected is :"  << filnavn << endl;
+    //cout << "EZConfig 6:filename selected is :"  << filnavn << endl;
     //return dev_handle;
 }
 
@@ -171,11 +171,11 @@ void FileW::pick_ihx() // http://doc.trolltech.com/4.3/qfiledialog.html
 	//fName = fileDialog->getOpenFileName();
     if (!fileNames.isEmpty())
 	fName = fileNames[0];
-    cout << "FileW::picked()::File selected is :"  << qPrintable(fName) << endl;
+    //cout << "FileW::picked()::File selected is :"  << qPrintable(fName) << endl;
     //printf("FileW::picked(): firmware file name is :\n", fName);
     //filename = fName.toLatin1();
     filnavn = fName.toUtf8();
-    cout << "FileW::picked():filename selected is :"  << filnavn << endl;
+    cout << "FileW::pick_ihx :filename selected is :"  << filnavn << endl;
     //printf("FileW::picked(): firmware file name is :\n", filename);
     printf("usbVendor =  %d\n", usbVendor);
     printf("usbProduct =  %d\n", usbProduct);
@@ -187,7 +187,7 @@ void FileW::pick_ihx() // http://doc.trolltech.com/4.3/qfiledialog.html
         fprintf(stderr, "FileW::picked(): no EZ-USB connected with specified VID/PID\n");
         exit(1);
     }
-    cout << "FileW::picked() 2 :filename selected is :"  << filnavn << endl;
+    //cout << "FileW::picked() 2 :filename selected is :"  << filnavn << endl;
     filnavn = fName.toUtf8();
     err = uploadFirmware(dev_handle);//, filnavn);
     if (err != kSuccess) {
@@ -316,7 +316,7 @@ void FileW::mCIC5SpinEditValue(int value)
 int FileW::uploadFirmware(struct usb_dev_handle *dev)//, const char *filename)
 {
 
-    FILE 		*firmware;
+    FILE 		*firmware = NULL;
     HEX_RECORD 		record;
     int 		err;
 
@@ -325,7 +325,7 @@ int FileW::uploadFirmware(struct usb_dev_handle *dev)//, const char *filename)
     if (firmware == NULL) {
         fprintf(stderr, "uploadFirmware: firmware file open failed\n");
 //        cout << "uploadFirmware:filename selected is :"  << qPrintable(filnavn) << endl;
-        cout << "uploadFirmware:filename selected is :"  << filnavn << endl;
+        //cout << "uploadFirmware:filename selected is :"  << filnavn << endl;
 //	printf("uploadFirmware: firmware file name is :%s\n", filename);
         return kFailure;
     }
@@ -392,61 +392,8 @@ int FileW::uploadAD6620()
         QMessageBox::warning(this, "FileW::uploadAD6620() : AD6620 File:",filnavn);
         return kFailure;
     }
-/************************* start på QFile løsningsforslag
-    QFile file(fName);
-    if (file.open(QFile::ReadOnly | QFile::Text))
-    {
-    	// upload firmware 
-   	for (;;) {
-	    QTextStream in(&file);
-            while (!file.atEnd()) {
-	    	file.getChar(&c);
-	    	//c = *pc;
-	    	if (c != ':') {
-                	fprintf(stderr, "FileW::picked(): hex file line did not start with colon, found %c\n", c);
-    	        	exit(1);
-    	   	 }
-            	//QByteArray line = file.readLine();
-           	QString line = file.readLine();
-	    	cout << "FileW::picked():Line read : "  << qPrintable(line) << endl;
-           	//process_line(line);
-            }
-	}
-	//ui.nullpunktEdit->setPlainText(file.readAll());
-	//f.open( IO_WriteOnly, stderr );
-	//f.writeBlock( msg, qstrlen(msg) );      // write to usb
-	file.close();
-    } else // (file.open(QFile::ReadOnly | QFile::Text))
-    {
-	QString message = "FileW::picked():Cannot access (%1) for reading";
-	QMessageBox::warning( this, "FileW::picked():IO Error", message.arg(filename) );
-    }
-*******************************/ 
-//    QMessageBox::warning(this, tr("FileW::uploadAD6620() File name\n"), filnavn);
- //   cout << "FileW::uploadAD6620(): AD6620 filename selected is :\n"  << filnavn << endl;
-//    cout << "FileW::uploadAD6620(): Må kopiere Halvors kode --------------- " << endl;
-/*    return kFailure;
-}*/
 
-// === nedfor er hentet fra setuosdrhw.cpp
-
-/*void FileW::LoadAD6620FileButtonClick() //(TObject *Sender)
-{*/
-  // FILE *filterware ;
-   // QFile file(filnavn);//FILE *FileHandle;
-    
-    //FileHandle = fopen(filnavn, "r");    
-   // if (!file.open(QFile::ReadOnly | QFile::Text))
-   // if (!file.open(QIODevice::ReadOnly))// (FileHandle == NULL) 
-/*    filterware = fopen(filnavn, "r");
-   if (filterware == NULL) 
-    {
-        QMessageBox::warning(this, "FileW::uploadAD6620()",
-        "Open AD6620 file failed.");
-        QMessageBox::warning(this, "FileW::uploadAD6620() : AD6620 File:",filnavn);
-        return kFailure;
-    }
-  */  
+ 
  //   QByteArray pReadData = file.read(FILE_BUFFER_SIZE);
     // === Nedenfor er hentet fra Halvors setupsdrhw.cpp
 

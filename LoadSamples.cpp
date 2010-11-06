@@ -37,7 +37,7 @@ int LoadSamples:: LoadSamplesFile()
 //    "This feature is partly implemented.");
 	
 //		static unsigned int frame_count;
-	unsigned char temp;
+	//unsigned char temp;
     int err = kSuccess;
     fileDialog = new QFileDialog(this);
     fileDialog->setFilter(tr( "Images (*.dat)"));
@@ -47,14 +47,7 @@ int LoadSamples:: LoadSamplesFile()
     if (fileDialog->exec()) fileNames = fileDialog->selectedFiles();
     if (!fileNames.isEmpty()) fName = fileNames[0];
 	filnavnSamples = fName.toUtf8();
-	//QString filnavnSamples = fName.toUtf8();
     QFile file(filnavnSamples);//
-	//QMessageBox::information(this, "LoadSamples:: LoadSamplesFile() : samples File:",filnavnSamples);
-	//QFile file("/Users/steinerik/Documents/SDRham/am_samples.dat");
-	//QFile file("am_samples.dat");
-	//file.setFileName("/Users/steinerik/Documents/SDRham/am_samples.dat");
-	//file.setFileName(filnavn);
-	//printf ("filnavn : %s\n\t", file.fileName());
 	
     if (!file.open(QFile::ReadOnly | QFile::Text))
     {
@@ -68,9 +61,7 @@ int LoadSamples:: LoadSamplesFile()
 		  {
 
 			QByteArray line = file.readLine(40); // Read a line
-			//	printf ("line  %d = %s\n\t", sample_count, line.data());
 			QByteArray ba = line.trimmed(); // Remove obsolete spaces, \r and \n
-			//    printf ("line trimmed %d = %s\n\t", sample_count, line.data());
 			QByteArray I_sample, Q_sample;
 			for (unsigned int n=0; ba[n]!=' ';n++)  // finner spacen mellom de to samplene
 			{
