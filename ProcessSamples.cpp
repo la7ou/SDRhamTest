@@ -36,15 +36,15 @@
 #include <iostream> // cout
 #include  <math.h>
 
-#include <dsp001.h>  // AM, SSB ... fra halvor
-#include <dsp002.h>  // FM, ...
-#include <dsppsk31.h>  // PSK, ...
+#include <dsp001.h>  //  demodSSB, Convolute, B2Lendian  ... fra halvor
+#include <dsp002.h>  // demodAM, demodFM, ...
+#include <dsppsk31.h>  // PSK, ..., planned
 
 #include "portaudio.h"
 
 #define _OSX_AU_DEBUG_ 0
 
-#define SINE  0
+#define SYNTH_SINE 0 // If 1, generates sine direct in paudio_scratch buffer to test portaudio
 
 //extern char audio_scratch[MAX_SAMPLES];
 //extern unsigned int num_of_samples;
@@ -279,14 +279,15 @@ void ProcessSamples:: ProcessSamplesSet()
 
 	  /* initialise sinusoidal wavetable */
 
-	  
+#ifdef SYNTH_SINE	  
 	  for(int i=0; i<TABLE_SIZE; i++ )
 	  {
-		  paudio_scratch[i] = (short) (600.0*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
+		  paudio_scratch[i] = (short) (20*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
 		  printf ("paudio_scratch[%i] = %d\n\t",i, paudio_scratch[i]);
 	  }
-
-	  data.left_phase = data.right_phase = 0;
+#endif
+	  data.left_phase = 0;
+	  data.right_phase = 0;
 	  data.frameIndex = NUM_SECONDS * SAMPLE_RATE; /* Play for a few seconds. */
 	  
 	  data.recordedSamples = paudio_scratch;
