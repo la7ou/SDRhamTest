@@ -62,7 +62,7 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 {
     paTestData *data = (paTestData*)userData;
     //SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
-    short *wptr = (short*)outputBuffer;//(SAMPLE*)outputBuffer;
+    float *wptr = (float*)outputBuffer;//(SAMPLE*)outputBuffer;
 	unsigned int framesLeft;// = data->maxFrameIndex - data->frameIndex;
 	
     (void) inputBuffer; /* Prevent unused variable warnings. */
@@ -335,7 +335,7 @@ void ProcessSamples:: ProcessSamplesSet()
 	  }
 	  
 	  outputParameters.channelCount = 2;                     /* stereo output */
-	  outputParameters.sampleFormat =  paInt16; //paFloat32;//PA_SAMPLE_TYPE;
+	  outputParameters.sampleFormat =  paFloat32;//paInt16;//PA_SAMPLE_TYPE;
 	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
 	  outputParameters.hostApiSpecificStreamInfo = NULL;
 	  
