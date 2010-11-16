@@ -91,10 +91,14 @@ void DSP001::B2Lendian(unsigned char *src_ptr,int *dest_ptr,unsigned int size)
 			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | (src_ptr[src_index+1]);
 			dest_ptr[dest_index] = (dest_ptr[dest_index] << 8 ) | (src_ptr[src_index]);
 			
+			dest_ptr[dest_index] = ((dest_ptr[dest_index] << 8 )/256);
+			
 			dest_ptr[dest_index+1] = 0;
 			dest_ptr[dest_index+1] = src_ptr[src_index+5];// Q sample
 			dest_ptr[dest_index+1] = (dest_ptr[dest_index+1] << 8 ) | (src_ptr[src_index+4]);
 			dest_ptr[dest_index+1] = (dest_ptr[dest_index+1] << 8 ) | (src_ptr[src_index+3]);
+			
+			dest_ptr[dest_index+1] = ((dest_ptr[dest_index+1] << 8 )/256);
 	
 			dest_index = dest_index + 2;
 			src_index = src_index+SAMPLE_SIZE; // 6
@@ -510,7 +514,7 @@ void DSP001::SSEMakeAudioSample(int *src_ptr,short *dest_ptr,unsigned int size, 
 
 	if (size != 0){
 		for (unsigned int i = 0; i<size; i++) {
-			dest_ptr[i] = src_ptr[i] % SAMPMAXIMUM; // scaling
+			dest_ptr[i] = src_ptr[i] >> 16;//% SAMPMAXIMUM; // scaling 
 			if (dest_ptr[i] > (double)AUDIOMAXIMUM) {
 				dest_ptr[i] = AUDIOMAXIMUM; //saturate to max positiv value
 			} else if (dest_ptr[i] < (double)-AUDIOMAXIMUM) {

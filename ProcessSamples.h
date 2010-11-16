@@ -41,7 +41,7 @@
 #define UP_FRACTION       0.5
 
 /* #define SAMPLE_RATE  (17932) // Test failure to open with this value. */
-#define SAMPLE_RATE  (44100)
+#define SAMPLE_RATE  16000//(44100)
 #define FRAMES_PER_BUFFER (1024)
 #define NUM_SECONDS     (5)
 #define NUM_CHANNELS    (2)

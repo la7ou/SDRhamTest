@@ -8,6 +8,7 @@
 class DSP002
 {
   public: //user functions
+	DSP002();
     void  FPdemodFM(int *, int *, unsigned int);
     void  FPdemodAM(int *, int *, unsigned int);
 

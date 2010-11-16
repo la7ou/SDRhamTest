@@ -62,7 +62,7 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 {
     paTestData *data = (paTestData*)userData;
     //SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
-    float *wptr = (float*)outputBuffer;//(SAMPLE*)outputBuffer;
+    short *wptr = (short*)outputBuffer;//(SAMPLE*)outputBuffer;
 	unsigned int framesLeft;// = data->maxFrameIndex - data->frameIndex;
 	
     (void) inputBuffer; /* Prevent unused variable warnings. */
@@ -93,7 +93,7 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 			
 		data->left_phase += 5;
 		if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
-		data->right_phase += 8; // higher pitch so we can distinguish left and right
+		data->right_phase += 10; // higher pitch so we can distinguish left and right
 		if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
     }
 	/* zero remainder of final buffer */
@@ -141,13 +141,16 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 
 	 pdisplay_buffer=new int[MAX_SAMPLES]; //display buffer
 	 if_gain=1;
-	wout_sample_rate=44100.0;	// AudioProp->GetAudioSampleRate();
-	fracpart=modf((in_sample_rate/(double)wout_sample_rate),&decim_rate);
+	 wout_sample_rate=16000;// fixes i GUI 44100.0;	// AudioProp->GetAudioSampleRate();
+	
+/* USB source only
+	 fracpart=modf((in_sample_rate/(double)wout_sample_rate),&decim_rate);
 	//decim_rate = 5; //test
 	decim=(unsigned int)decim_rate;
 	if(fracpart>UP_FRACTION)
 		decim++;
-
+*/
+	 decim =1 ;
 	
 	run_flag = true;
 
@@ -332,7 +335,7 @@ void ProcessSamples:: ProcessSamplesSet()
 	  }
 	  
 	  outputParameters.channelCount = 2;                     /* stereo output */
-	  outputParameters.sampleFormat =  paInt16; //short //paFloat32;//PA_SAMPLE_TYPE;
+	  outputParameters.sampleFormat =  paInt16; //paFloat32;//PA_SAMPLE_TYPE;
 	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
 	  outputParameters.hostApiSpecificStreamInfo = NULL;
 	  
