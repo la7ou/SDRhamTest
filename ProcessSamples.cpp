@@ -44,7 +44,7 @@
 
 #define _OSX_AU_DEBUG_ 0
 
-#define SYNTH_SINE 0 // If 1, generates sine direct in paudio_scratch buffer to test portaudio
+#define _SYNTH_SINE_ 0 // If 1, generates sine direct in paudio_scratch buffer to test portaudio
 
 //extern char audio_scratch[MAX_SAMPLES];
 //extern unsigned int num_of_samples;
@@ -62,7 +62,7 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 {
     paTestData *data = (paTestData*)userData;
     //SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
-    float *wptr = (float*)outputBuffer;//(SAMPLE*)outputBuffer;
+    short *wptr = (short*)outputBuffer;//(SAMPLE*)outputBuffer;
 	unsigned int framesLeft;// = data->maxFrameIndex - data->frameIndex;
 	
     (void) inputBuffer; /* Prevent unused variable warnings. */
@@ -88,13 +88,14 @@ int ProcessSamples::playCallback( const void *inputBuffer, void *outputBuffer,
 	for(i=0; i<framesLeft; i++ )
 	//	for(unsigned int i=0; i<framesPerBuffer; i++ )
     {
-		*wptr++ = data->recordedSamples[data->left_phase];
-		*wptr++ = data->recordedSamples[data->right_phase];
+		*wptr++ = data->recordedSamples[i];//[data->left_phase];
+		*wptr++ = data->recordedSamples[i];//[data->right_phase];
 			
-		data->left_phase += 5;
+		/*data->left_phase +=	1;
 		if( data->left_phase >= TABLE_SIZE ) data->left_phase -= TABLE_SIZE;
-		data->right_phase += 10; // higher pitch so we can distinguish left and right
+		data->right_phase += 1; 
 		if( data->right_phase >= TABLE_SIZE ) data->right_phase -= TABLE_SIZE;
+		*/
     }
 	/* zero remainder of final buffer */
     for( ; i<(unsigned int)framesPerBuffer; i++ )
@@ -282,10 +283,11 @@ void ProcessSamples:: ProcessSamplesSet()
 
 	  /* initialise sinusoidal wavetable */
 
-#ifdef SYNTH_SINE	  
+#ifdef SYNTH_SINE	
+	  printf ("___________Generating a sine in paudio_scratch________________\n\t");
 	  for(int i=0; i<TABLE_SIZE; i++ )
 	  {
-		  paudio_scratch[i] = (short) (20*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
+		  paudio_scratch[i] = (short) (20000*sin( ((double)i/(double)TABLE_SIZE) * M_PI * 2. ));
 		  printf ("paudio_scratch[%i] = %d\n\t",i, paudio_scratch[i]);
 	  }
 #endif
@@ -294,6 +296,8 @@ void ProcessSamples:: ProcessSamplesSet()
 	  data.frameIndex = NUM_SECONDS * SAMPLE_RATE; /* Play for a few seconds. */
 	  
 	  data.recordedSamples = paudio_scratch;
+	  printf ("data.recordedSamples[i] = \n\t");
+	  for(int i=0; i<TABLE_SIZE; i++ ) printf ("%i : %d\n\t",i, data.recordedSamples[i]);
 	  //data.sine = (short)paudio_scratch;
 
     switch(waveFreeBlockCount)
@@ -335,7 +339,7 @@ void ProcessSamples:: ProcessSamplesSet()
 	  }
 	  
 	  outputParameters.channelCount = 2;                     /* stereo output */
-	  outputParameters.sampleFormat =  paFloat32;//paInt16;//PA_SAMPLE_TYPE;
+	  outputParameters.sampleFormat =  paInt16;//PA_SAMPLE_TYPE;paFloat32;//
 	  outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
 	  outputParameters.hostApiSpecificStreamInfo = NULL;
 	  
